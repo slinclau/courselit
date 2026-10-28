@@ -6,6 +6,8 @@ const config: Config = {
     testEnvironment: "node",
     moduleNameMapper: {
         "@courselit/utils": "<rootDir>/../../packages/utils/src",
+        "@courselit/video-providers":
+            "<rootDir>/../../packages/video-providers/src",
         "@courselit/common-logic": "<rootDir>/../../packages/common-logic/src",
         "@courselit/common-models":
             "<rootDir>/../../packages/common-models/src",

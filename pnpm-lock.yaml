@@ -333,6 +333,9 @@ importers:
       '@courselit/utils':
         specifier: workspace:^
         version: link:../../packages/utils
+      '@courselit/video-providers':
+        specifier: workspace:^
+        version: link:../../packages/video-providers
       '@dnd-kit/core':
         specifier: ^6.3.1
         version: 6.3.1(react-dom@19.2.0(react@19.2.0))(react@19.2.0)

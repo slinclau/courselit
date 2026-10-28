@@ -901,3 +901,59 @@ export const LESSON_CONTENT_LABEL = "Content";
 export const EMAIL_EDITOR_EMAIL_EDIT_HEADER = "Editing email";
 export const EMAIL_EDITOR_TEMPLATE_EDIT_HEADER = "Editing template";
 export const LOGIN_FORM_PERSONAL_INFORMATION_LABEL = "Personal Information";
+
+export const VIDEO_PROVIDERS_TAB_HEADER = "Video";
+export const VIDEO_PROVIDERS_HEADER = "Video providers";
+export const VIDEO_PROVIDERS_DESCRIPTION =
+    "Providers that host and stream the videos of your streaming video lessons.";
+export const VIDEO_PROVIDERS_EMPTY = "No video provider has been added yet.";
+export const VIDEO_PROVIDER_ADD = "Add provider";
+export const VIDEO_PROVIDER_EDIT = "Edit";
+export const VIDEO_PROVIDER_REMOVE = "Remove";
+export const VIDEO_PROVIDER_REMOVE_DISABLED_TOOLTIP =
+    "This provider has videos and cannot be removed.";
+export const VIDEO_PROVIDER_REMOVE_CONFIRM_TITLE = "Remove this provider?";
+export const VIDEO_PROVIDER_REMOVE_CONFIRM_DESCRIPTION =
+    "Only the provider configuration is removed from this school. Nothing is deleted at the provider.";
+export const VIDEO_PROVIDER_ACTIVE_BADGE = "Active";
+export const VIDEO_PROVIDER_MAKE_ACTIVE = "Make active";
+export const VIDEO_PROVIDER_TEST = "Test connection";
+export const VIDEO_PROVIDER_VIDEO_COUNT = "videos";
+export const VIDEO_PROVIDER_SAVED = "Video provider saved";
+export const VIDEO_PROVIDER_REMOVED = "Video provider removed";
+export const VIDEO_PROVIDER_NAME_LABEL = "Name";
+export const VIDEO_PROVIDER_TYPE_LABEL = "Provider";
+export const VIDEO_PROVIDER_COMING_SOON = "coming soon";
+export const VIDEO_PROVIDER_FIELD_REQUIRED = "This field is required";
+export const VIDEO_PROVIDER_SECRET_HELPER =
+    "Leave empty to keep the saved value.";
+export const VIDEO_PROVIDER_WEBHOOK_LABEL = "Webhook URL";
+export const VIDEO_PROVIDER_DIALOG_ADD_TITLE = "Add a video provider";
+export const VIDEO_PROVIDER_DIALOG_EDIT_TITLE = "Edit video provider";
+export const VIDEO_PROVIDER_TYPES = [
+    { value: "bunny", label: "Bunny Stream", disabled: false },
+    { value: "cloudflare", label: "Cloudflare Stream", disabled: true },
+    { value: "mux", label: "Mux", disabled: true },
+];
+// Field names must match the connector's SETTING_FIELDS / SECRET_FIELDS in
+// @courselit/video-providers (not imported here to keep Node-only code out
+// of the browser bundle).
+export const VIDEO_PROVIDER_FIELDS: Record<
+    string,
+    {
+        settings: { key: string; label: string }[];
+        secrets: { key: string; label: string }[];
+    }
+> = {
+    bunny: {
+        settings: [
+            { key: "libraryId", label: "Library ID" },
+            { key: "cdnHostname", label: "CDN hostname" },
+        ],
+        secrets: [
+            { key: "apiKey", label: "API key" },
+            { key: "readOnlyApiKey", label: "Read-only API key" },
+            { key: "tokenSecurityKey", label: "Token authentication key" },
+        ],
+    },
+};

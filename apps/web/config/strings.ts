@@ -157,6 +157,10 @@ export const responses = {
         "CourseID is required for demo certificate",
     provider_not_configured: "Configure the provider before enabling",
     provider_invalid_configuration: "Invalid provider configuration",
+    video_provider_has_videos:
+        "This video provider still has videos and cannot be removed",
+    video_provider_is_active:
+        "Make another video provider active before removing this one",
     page_id_already_exists:
         "This URL slug is already in use. Please choose a different one.",
 };

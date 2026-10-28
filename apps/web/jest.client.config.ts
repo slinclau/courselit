@@ -34,6 +34,8 @@ const config = {
         "^react-dom$": "<rootDir>/node_modules/react-dom",
         "^react/jsx-runtime$": "<rootDir>/node_modules/react/jsx-runtime.js",
         "@courselit/utils": "<rootDir>/../../packages/utils/src",
+        "@courselit/video-providers":
+            "<rootDir>/../../packages/video-providers/src",
         "@courselit/common-logic": "<rootDir>/../../packages/common-logic/src",
         "@courselit/page-primitives":
             "<rootDir>/../../packages/page-primitives/src",

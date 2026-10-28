@@ -46,6 +46,7 @@ import {
     SITE_SETTINGS_LEMONSQUEEZY_SUB_YEARLY_TEXT,
     SETTINGS_RESOURCE_PAYMENT,
     SITE_MISCELLANEOUS_SETTING_HEADER,
+    VIDEO_PROVIDERS_TAB_HEADER,
     BUTTON_CANCEL_TEXT,
 } from "@/ui-config/strings";
 import { FetchBuilder, capitalize } from "@courselit/utils";
@@ -90,6 +91,7 @@ import {
 import dynamic from "next/dynamic";
 
 const MiscellaneousTab = dynamic(() => import("./tabs/miscellaneous"));
+const VideoProviders = dynamic(() => import("./video-providers"));
 
 const {
     PAYMENT_METHOD_PAYPAL,
@@ -108,7 +110,8 @@ interface SettingsProps {
         | typeof SITE_SETTINGS_SECTION_PAYMENT
         | typeof SITE_MAILS_HEADER
         | typeof SITE_CUSTOMISATIONS_SETTING_HEADER
-        | typeof SITE_MISCELLANEOUS_SETTING_HEADER;
+        | typeof SITE_MISCELLANEOUS_SETTING_HEADER
+        | typeof VIDEO_PROVIDERS_TAB_HEADER;
 }
 
 const Settings = (props: SettingsProps) => {
@@ -123,6 +126,7 @@ const Settings = (props: SettingsProps) => {
         SITE_MAILS_HEADER,
         SITE_CUSTOMISATIONS_SETTING_HEADER,
         SITE_MISCELLANEOUS_SETTING_HEADER,
+        VIDEO_PROVIDERS_TAB_HEADER,
     ].includes(props.selectedTab)
         ? props.selectedTab
         : SITE_SETTINGS_SECTION_GENERAL;
@@ -735,6 +739,7 @@ const Settings = (props: SettingsProps) => {
         SITE_MAILS_HEADER,
         SITE_CUSTOMISATIONS_SETTING_HEADER,
         SITE_MISCELLANEOUS_SETTING_HEADER,
+        VIDEO_PROVIDERS_TAB_HEADER,
     ];
 
     return (
@@ -1259,6 +1264,7 @@ const Settings = (props: SettingsProps) => {
                     </div>
                 </Form>
                 <MiscellaneousTab />
+                <VideoProviders />
             </Tabbs>
         </div>
     );
