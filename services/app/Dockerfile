@@ -28,6 +28,7 @@ COPY packages/page-blocks /app/packages/page-blocks
 COPY packages/components-library /app/packages/components-library
 COPY packages/text-editor /app/packages/text-editor
 COPY packages/utils /app/packages/utils
+COPY packages/video-providers /app/packages/video-providers
 COPY apps/web /app/apps/web
 
 # Install dependencies based on the preferred package manager
