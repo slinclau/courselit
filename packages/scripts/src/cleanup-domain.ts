@@ -32,6 +32,8 @@ import {
     DownloadLinkSchema,
     ApiKeySchema,
     UserThemeSchema,
+    VideoProviderSchema,
+    StreamingVideoSchema,
     deleteProductDiscussionData,
 } from "@courselit/orm-models";
 import type {
@@ -120,6 +122,11 @@ const EmailEventModel = mongoose.model("EmailEvent", EmailEventSchema);
 const EmailDeliveryModel = mongoose.model("EmailDelivery", EmailDeliverySchema);
 const DownloadLinkModel = mongoose.model("DownloadLink", DownloadLinkSchema);
 const ApiKeyModel = mongoose.model("ApiKey", ApiKeySchema);
+const VideoProviderModel = mongoose.model("VideoProvider", VideoProviderSchema);
+const StreamingVideoModel = mongoose.model(
+    "StreamingVideo",
+    StreamingVideoSchema,
+);
 
 async function cleanupDomain(name: string) {
     const domain = await DomainModel.findOne({ name });
@@ -147,6 +154,9 @@ async function cleanupDomain(name: string) {
     await EmailDeliveryModel.deleteMany({ domain: domain._id });
     await DownloadLinkModel.deleteMany({ domain: domain._id });
     await ApiKeyModel.deleteMany({ domain: domain._id });
+    // Database records only; nothing is deleted at the video provider.
+    await StreamingVideoModel.deleteMany({ domain: domain._id });
+    await VideoProviderModel.deleteMany({ domain: domain._id });
 
     const products = (await CourseModel.find({
         domain: domain._id,

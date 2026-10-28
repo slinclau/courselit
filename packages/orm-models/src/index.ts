@@ -41,3 +41,5 @@ export * from "./models/user-theme";
 export * from "./models/product-discussion";
 export * from "./models/rate-limit-event";
 export * from "./product-discussion-cleanup";
+export * from "./models/video-provider";
+export * from "./models/streaming-video";
