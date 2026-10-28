@@ -91,7 +91,7 @@ beforeEach(() => {
     (getProviderConfig as jest.Mock).mockResolvedValue(config);
     (getActiveProviderConfig as jest.Mock).mockResolvedValue({
         ...config,
-        providerId: "p1",
+        providerId: "p2",
     });
     (Course.findOne as jest.Mock).mockResolvedValue({
         courseId: "c1",
@@ -132,7 +132,7 @@ describe("POST /api/video/uploads", () => {
         const created = (StreamingVideo.create as jest.Mock).mock.calls[0][0];
         expect(created).toMatchObject({
             domain: "domain-id",
-            providerId: "p1",
+            providerId: "p2",
             providerVideoId: "pv1",
             courseId: "c1",
             status: "uploading",
@@ -193,7 +193,10 @@ describe("POST /api/video/uploads", () => {
             { domain: "domain-id", videoId: "old" },
             { $set: { courseId: null } },
         );
-        expect(Object.keys(connector)).not.toContain("deleteVideo");
+        expect(connector.getVideo).not.toHaveBeenCalled();
+        expect(connector.verifyWebhook).not.toHaveBeenCalled();
+        expect(connector.ensureGroup).toHaveBeenCalledTimes(1);
+        expect(connector.createUpload).toHaveBeenCalledTimes(1);
     });
 
     it("rejects a lesson that is not a streaming video", async () => {
@@ -270,6 +273,29 @@ describe("video status and uploaded", () => {
         expect(getProviderConfig).toHaveBeenCalledWith("domain-id", "p1");
         expect(connector.getVideo).toHaveBeenCalledWith("pv1");
     });
+
+    it("/uploaded keeps processing when the provider still says uploading", async () => {
+        asUser(author);
+        (StreamingVideo.findOne as jest.Mock).mockResolvedValue(video);
+        (StreamingVideo.findOneAndUpdate as jest.Mock).mockResolvedValue({});
+        connector.getVideo.mockResolvedValue({
+            providerVideoId: "pv1",
+            title: "t",
+            status: "uploading",
+        });
+        // The record is read back as processing after the conditional update.
+        (StreamingVideo.findOne as jest.Mock).mockResolvedValue({
+            ...video,
+            status: "processing",
+        });
+        const { POST } = await import("../[videoId]/uploaded/route");
+        await POST(request({}), {
+            params: Promise.resolve({ videoId: "v1" }),
+        });
+        const set = (StreamingVideo.findOneAndUpdate as jest.Mock).mock
+            .calls[0][1].$set;
+        expect(set.status).toBeUndefined();
+    });
 });
 
 describe("POST /api/video/webhook/[providerId]", () => {
@@ -286,6 +312,8 @@ describe("POST /api/video/webhook/[providerId]", () => {
         const { POST } = await import("../webhook/[providerId]/route");
         const res = await POST(request({ raw: "{}" }), params);
         expect(res.status).toBe(401);
+        expect(StreamingVideo.findOne).not.toHaveBeenCalled();
+        expect(connector.getVideo).not.toHaveBeenCalled();
         expect(StreamingVideo.findOneAndUpdate).not.toHaveBeenCalled();
     });
 
@@ -324,6 +352,17 @@ describe("POST /api/video/webhook/[providerId]", () => {
         const set = (StreamingVideo.findOneAndUpdate as jest.Mock).mock
             .calls[0][1].$set;
         expect(set.status).toBe("processing");
+        expect(getProviderConfig).toHaveBeenCalledWith("domain-id", "p1");
+    });
+
+    it("returns a controlled 500 for an incomplete provider config", async () => {
+        (getConnector as jest.Mock).mockImplementation(() => {
+            throw new Error("missing libraryId");
+        });
+        const { POST } = await import("../webhook/[providerId]/route");
+        const res = await POST(request({ raw: "{}" }), params);
+        expect(res.status).toBe(500);
+        expect(JSON.stringify(await res.json())).not.toContain("libraryId");
     });
 
     it("returns 500 when the provider API fails", async () => {

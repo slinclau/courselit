@@ -48,6 +48,14 @@ export function applyProviderVideo(
         status: providerVideo.status,
         lastCheckedAt: now,
     };
+    // The provider may still report "created" right after the upload ends;
+    // do not move a processing video back to uploading.
+    if (
+        current.status === "processing" &&
+        providerVideo.status === "uploading"
+    ) {
+        delete update.status;
+    }
     if (providerVideo.durationSeconds !== undefined) {
         update.durationSeconds = providerVideo.durationSeconds;
     }

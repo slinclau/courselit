@@ -30,7 +30,16 @@ export async function POST(
     }
 
     const rawBody = await req.text();
-    const verified = getConnector(config).verifyWebhook(rawBody, req.headers);
+    let verified;
+    try {
+        verified = getConnector(config).verifyWebhook(rawBody, req.headers);
+    } catch (err: any) {
+        logError("Streaming video webhook could not be verified", {
+            providerId,
+            err: err?.message,
+        });
+        return Response.json({ message: "Webhook failed" }, { status: 500 });
+    }
     if (!verified) {
         return Response.json({ message: "Unauthorized" }, { status: 401 });
     }

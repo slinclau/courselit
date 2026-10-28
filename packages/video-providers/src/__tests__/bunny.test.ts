@@ -370,6 +370,14 @@ describe("applyProviderVideo", () => {
         );
         expect(again.readyAt).toBeUndefined();
     });
+    test("processing is not regressed to uploading", () => {
+        const r = applyProviderVideo(
+            { status: "processing" },
+            { providerVideoId: "g", title: "t", status: "uploading" },
+            now,
+        );
+        expect(r).toEqual({ lastCheckedAt: now });
+    });
     test("null -> error", () => {
         expect(applyProviderVideo({ status: "processing" }, null, now)).toEqual(
             {
