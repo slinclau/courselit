@@ -36,3 +36,57 @@ export interface VideoProviderPublic {
 export interface StreamingVideoContent {
     videoId?: string;
 }
+
+export interface ProviderConfig {
+    type: VideoProviderType;
+    settings: Record<string, string>;
+    secrets: Record<string, string>;
+}
+
+export interface ProviderVideo {
+    providerVideoId: string;
+    title: string;
+    status: StreamingVideoStatus;
+    durationSeconds?: number;
+    thumbnailUrl?: string;
+    groupId?: string;
+    createdAt?: Date;
+}
+
+export interface UploadInstructions {
+    protocol: "tus";
+    endpoint: string;
+    headers: Record<string, string>;
+    metadata: Record<string, string>;
+    expiresAt: Date;
+}
+
+export interface Playback {
+    kind: "hls";
+    url: string;
+    expiresAt: Date;
+}
+
+export interface VideoProviderConnector {
+    testConnection(): Promise<
+        { ok: true; videoCount: number } | { ok: false; error: string }
+    >;
+    /** Returns the provider group id. */
+    ensureGroup(key: string, title: string): Promise<string>;
+    createUpload(input: {
+        title: string;
+        groupId?: string;
+        filetype: string;
+    }): Promise<{ providerVideoId: string; upload: UploadInstructions }>;
+    /** null = not found at provider */
+    getVideo(providerVideoId: string): Promise<ProviderVideo | null>;
+    listVideos(input: {
+        page: number;
+    }): Promise<{ items: ProviderVideo[]; hasMore: boolean }>;
+    /** null = reject */
+    verifyWebhook(
+        rawBody: string,
+        headers: { get(name: string): string | null },
+    ): { providerVideoId: string } | null;
+    getPlayback(providerVideoId: string, ttlSeconds: number): Playback;
+}

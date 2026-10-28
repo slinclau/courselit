@@ -77,9 +77,14 @@ export * from "./features";
 export * from "./product-discussion";
 export type { ScormContent } from "./scorm-content";
 export type {
+    ProviderConfig,
+    ProviderVideo,
+    Playback,
     StreamingVideo,
     StreamingVideoContent,
     StreamingVideoStatus,
+    UploadInstructions,
+    VideoProviderConnector,
     VideoProviderPublic,
     VideoProviderType,
 } from "./streaming-video";

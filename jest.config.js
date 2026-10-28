@@ -3,5 +3,6 @@ module.exports = {
         "<rootDir>/apps/web/jest.client.config.ts",
         "<rootDir>/apps/web/jest.server.config.ts",
         "<rootDir>/apps/queue/jest.config.ts",
+        "<rootDir>/packages/video-providers/jest.config.js",
     ],
 };
