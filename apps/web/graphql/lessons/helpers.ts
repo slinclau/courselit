@@ -5,7 +5,8 @@ import CourseModel from "../../models/Course";
 import { Group, Question, Quiz } from "@courselit/common-models";
 import mongoose from "mongoose";
 import { LessonWithStringContent } from "./logic";
-const { text, audio, video, pdf, embed, quiz, file } = constants;
+const { text, audio, video, pdf, embed, quiz, file, streamingVideo } =
+    constants;
 
 type LessonValidatorProps = Pick<
     LessonWithStringContent,
@@ -14,6 +15,7 @@ type LessonValidatorProps = Pick<
 
 export const lessonValidator = (lessonData: LessonValidatorProps) => {
     validateTextContent(lessonData);
+    validateStreamingVideoContent(lessonData);
     // validateMediaContent(lessonData);
 };
 
@@ -51,6 +53,32 @@ export function validateTextContent(lessonData: LessonValidatorProps) {
         if (content && content.questions) {
             validateQuizContent(content.questions);
         }
+    }
+}
+
+export function validateStreamingVideoContent(
+    lessonData: LessonValidatorProps,
+) {
+    if (lessonData.type !== streamingVideo) {
+        return;
+    }
+
+    let content: any;
+    try {
+        content = lessonData.content ? JSON.parse(lessonData.content) : {};
+    } catch {
+        throw new Error(responses.content_cannot_be_null);
+    }
+
+    const isValid =
+        content &&
+        typeof content === "object" &&
+        !Array.isArray(content) &&
+        Object.keys(content).every((key) => key === "videoId") &&
+        (content.videoId === undefined || typeof content.videoId === "string");
+
+    if (!isValid) {
+        throw new Error(responses.content_cannot_be_null);
     }
 }
 

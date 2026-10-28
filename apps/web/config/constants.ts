@@ -24,6 +24,7 @@ export default {
     file: "file",
     embed: "embed",
     scorm: "scorm",
+    streamingVideo: "streaming_video",
 
     // media access type
     publicMedia: "public",

@@ -76,6 +76,13 @@ export * from "./login-provider";
 export * from "./features";
 export * from "./product-discussion";
 export type { ScormContent } from "./scorm-content";
+export type {
+    StreamingVideo,
+    StreamingVideoContent,
+    StreamingVideoStatus,
+    VideoProviderPublic,
+    VideoProviderType,
+} from "./streaming-video";
 export {
     COMMUNITY_HEART_EMOJI,
     COMMUNITY_REACTION_EMOJIS,

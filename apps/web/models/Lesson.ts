@@ -3,12 +3,14 @@ import {
     Quiz,
     TextEditorContent,
     ScormContent,
+    StreamingVideoContent,
 } from "@courselit/common-models";
 import { generateUniqueId } from "@courselit/utils";
 import mongoose from "mongoose";
 import constants from "../config/constants";
 import MediaSchema from "./Media";
-const { text, video, audio, pdf, quiz, file, embed, scorm } = constants;
+const { text, video, audio, pdf, quiz, file, embed, scorm, streamingVideo } =
+    constants;
 
 export interface Lesson {
     id: mongoose.Types.ObjectId;
@@ -23,8 +25,14 @@ export interface Lesson {
         | typeof quiz
         | typeof file
         | typeof embed
-        | typeof scorm;
-    content?: Quiz | TextEditorContent | ScormContent | { value: string };
+        | typeof scorm
+        | typeof streamingVideo;
+    content?:
+        | Quiz
+        | TextEditorContent
+        | ScormContent
+        | StreamingVideoContent
+        | { value: string };
     media?: Media;
     downloadable: boolean;
     creatorId: string;
@@ -41,7 +49,17 @@ const LessonSchema = new mongoose.Schema<Lesson>({
     type: {
         type: String,
         required: true,
-        enum: [text, video, audio, pdf, quiz, file, embed, scorm],
+        enum: [
+            text,
+            video,
+            audio,
+            pdf,
+            quiz,
+            file,
+            embed,
+            scorm,
+            streamingVideo,
+        ],
     },
     content: { type: mongoose.Schema.Types.Mixed, default: {} },
     media: MediaSchema,

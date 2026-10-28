@@ -14,7 +14,8 @@ import mediaTypes from "../media/types";
 import { getMedia } from "../media/logic";
 import { GraphQLJSONObject } from "graphql-type-json";
 
-const { text, audio, video, pdf, quiz, file, embed, scorm } = constants;
+const { text, audio, video, pdf, quiz, file, embed, scorm, streamingVideo } =
+    constants;
 
 const DESCRIPTION_REQUIRES_ENROLLMENT =
     "Should the content of this lesson be visible to only enrolled customers.";
@@ -33,6 +34,7 @@ const lessontypeType = new GraphQLEnumType({
         FILE: { value: file },
         EMBED: { value: embed },
         SCORM: { value: scorm },
+        STREAMING_VIDEO: { value: streamingVideo },
     },
 });
 

@@ -121,6 +121,7 @@ export const LessonType = {
     EMBED: "embed",
     QUIZ: "quiz",
     SCORM: "scorm",
+    STREAMING_VIDEO: "streaming_video",
 } as const;
 export const ActivityType = {
     ENROLLED: "enrolled",
