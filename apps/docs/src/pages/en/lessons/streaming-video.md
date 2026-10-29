@@ -16,9 +16,9 @@ Before you can upload videos, set up a video provider. See [Set up a video provi
 
 3. On the New Lesson screen, you'll see a row of lesson type cards. Click on the `Video (streaming)` card to select it.
 
-4. Enter the title of the lesson and hit `Save`. The video can only be uploaded after the lesson has been saved at least once.
+4. Enter the title of the lesson.
 
-5. Click on `Choose a video file` and pick the video from your computer.
+5. Click on `Choose a video file` and pick the video from your computer. A new lesson is saved as an unpublished draft at this point. If you left the title empty, the name of the file is used; you can change it later.
 
 6. The upload starts right away and a progress bar shows how far it has got. The video goes directly from your browser to the video provider, not through your CourseLit server.
 
