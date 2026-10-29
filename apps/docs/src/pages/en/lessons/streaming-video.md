@@ -1,0 +1,59 @@
+---
+title: Add a streaming video to a course
+description: Upload videos to your video provider and stream them in your course
+layout: ../../../layouts/MainLayout.astro
+---
+
+The `Video (streaming)` lesson type lets you upload a video file straight from your browser to a video provider that you have connected to your school. Learners watch it in CourseLit's own player, and the lesson is marked as completed automatically when they reach the end of the video.
+
+Before you can upload videos, set up a video provider. See [Set up a video provider](/en/schools/video-providers).
+
+## Add a streaming video to a course
+
+1. Go to the `Products` page and click on the course you want to add a video to. Click on `Edit content`.
+
+2. Click on `Add lesson` in any section.
+
+3. On the New Lesson screen, you'll see a row of lesson type cards. Click on the `Video (streaming)` card to select it.
+
+4. Enter the title of the lesson and hit `Save`. The video can only be uploaded after the lesson has been saved at least once.
+
+5. Click on `Choose a video file` and pick the video from your computer.
+
+6. The upload starts right away and a progress bar shows how far it has got. The video goes directly from your browser to the video provider, not through your CourseLit server.
+
+    Do not leave the page or close the browser tab until the upload finishes. The `Save` button is disabled while the upload is running.
+
+7. When the upload finishes, the provider processes the video. Once it is ready, a thumbnail and the duration of the video are shown in the editor.
+
+## Upload statuses
+
+The lesson editor shows the current status of the video. While a video is uploading or being processed, the editor checks its status every 10 seconds.
+
+| Status                   | Meaning                                                                                 |
+| ------------------------ | --------------------------------------------------------------------------------------- |
+| Uploading                | The file is being sent to the video provider.                                           |
+| Video is being processed | The upload is complete and the provider is preparing the video for streaming.           |
+| Video is ready           | The video can be played. A thumbnail and the duration are shown.                        |
+| Error                    | The video could not be processed. Click on `Upload again` to upload the file once more. |
+
+If the browser was closed or the connection was lost halfway, you will see `The previous upload did not finish` along with an `Upload again` button. An upload that has not been completed within 24 hours is marked as an error.
+
+To change the video of a lesson, use `Replace video`. The previous video is not deleted from your video provider; CourseLit never deletes anything at the provider.
+
+## What your learners see
+
+- Until the video is ready, learners see a placeholder in place of the player.
+- Once it is ready, the video plays in CourseLit's own player.
+- When an enrolled learner watches the video to the end, the lesson is marked as completed automatically.
+- If the lesson does not have `Requires enrollment` turned on, it is a public preview and can be watched without enrolling.
+
+## Publishing a course with streaming videos
+
+A course cannot be published while any of its streaming video lessons has a video that is not ready or is missing. When you try to publish, the message lists the lessons that need attention.
+
+If you add a streaming video to a course that is already published, the course stays published.
+
+## Stuck somewhere?
+
+We are always there for you. Come chat with us in our <a href="https://discord.com/invite/GR4bQsN" target="_blank">Discord</a> channel or send a tweet at <a href="https://twitter.com/courselit" target="_blank">@CourseLit</a>.

@@ -126,6 +126,10 @@ export const SIDEBAR: Sidebar = {
             { text: "Set up payments", link: "en/schools/set-up-payments" },
             { text: "Single Sign-On", link: "en/schools/sso" },
             { text: "Sign in with Google", link: "en/schools/google-sign-in" },
+            {
+                text: "Set up a video provider",
+                link: "en/schools/video-providers",
+            },
             { text: "Delete a school", link: "en/schools/delete" },
         ],
         Users: [

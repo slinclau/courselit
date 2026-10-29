@@ -8,6 +8,7 @@
         "set-up-payments",
         "sso",
         "google-sign-in",
+        "video-providers",
         "delete"
     ]
 }
