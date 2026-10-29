@@ -46,7 +46,7 @@ To change the video of a lesson, use `Replace video`. The previous video is not 
 - Until the video is ready, learners see a placeholder in place of the player.
 - Once it is ready, the video plays in CourseLit's own player.
 - When an enrolled learner watches the video to the end, the lesson is marked as completed automatically.
-- If the lesson does not have `Requires enrollment` turned on, it is a public preview and can be watched without enrolling.
+- If the lesson has the `Preview` option turned on, it is freely available and can be watched without enrolling.
 
 ## Publishing a course with streaming videos
 
