@@ -18,6 +18,9 @@ const nextConfig = {
     typescript: {},
     images: {
         remotePatterns,
+        // Opt-in for local development with a local media server: Next
+        // refuses to optimize images served over http from a local IP.
+        unoptimized: process.env.COURSELIT_IMAGES_UNOPTIMIZED === "true",
     },
     transpilePackages: [
         "@courselit/page-blocks",
