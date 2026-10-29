@@ -210,4 +210,17 @@ describe("GET /api/video/[videoId]/playback", () => {
             }),
         );
     });
+
+    it("returns a controlled 502 when the provider config is incomplete", async () => {
+        asUser(learner());
+        (getConnector as jest.Mock).mockImplementation(() => {
+            throw new Error("Bunny configuration is missing tokenSecurityKey");
+        });
+        const res = await call();
+        expect(res.status).toBe(502);
+        expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+        const body = JSON.stringify(await res.json());
+        expect(body).not.toContain("tokenSecurityKey");
+        expect(body).not.toContain("playback");
+    });
 });

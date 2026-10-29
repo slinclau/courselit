@@ -28,13 +28,15 @@ export async function POST(req: NextRequest) {
     } catch {
         return Response.json({ message: "Invalid body" }, { status: 400 });
     }
-    const { lessonId, filetype } = body || {};
-    if (typeof lessonId !== "string" || typeof filetype !== "string") {
+    const { lessonId } = body || {};
+    if (typeof lessonId !== "string" || typeof body.filetype !== "string") {
         return Response.json(
             { message: "lessonId and filetype are required" },
             { status: 400 },
         );
     }
+    // Browsers report an empty type for unknown extensions; TUS needs one.
+    const filetype: string = body.filetype.trim() || "application/octet-stream";
 
     const lesson = await LessonModel.findOne({
         lessonId,
@@ -100,16 +102,34 @@ export async function POST(req: NextRequest) {
     }
 
     const videoId = generateUniqueId();
-    await StreamingVideoModel.create({
-        domain: domain._id,
-        videoId,
-        providerId: active.providerId,
-        providerVideoId: created.providerVideoId,
-        courseId: lesson.courseId,
-        title: lesson.title,
-        status: "uploading",
-        createdBy: user.userId,
-    });
+    try {
+        await StreamingVideoModel.create({
+            domain: domain._id,
+            videoId,
+            providerId: active.providerId,
+            providerVideoId: created.providerVideoId,
+            courseId: lesson.courseId,
+            title: lesson.title,
+            status: "uploading",
+            createdBy: user.userId,
+        });
+    } catch (err: any) {
+        // A duplicate key means the import job filed this provider video
+        // first; the lesson is left unchanged either way.
+        const duplicate = err?.code === 11000;
+        logError("Streaming video record could not be stored", {
+            lessonId,
+            err: err?.message,
+        });
+        return Response.json(
+            {
+                message: duplicate
+                    ? "This video is already tracked, start the upload again"
+                    : "The upload could not be started",
+            },
+            { status: duplicate ? 409 : 502 },
+        );
+    }
 
     // The replaced video stays at the provider; it is only unfiled.
     const previousVideoId = lesson.content?.videoId;

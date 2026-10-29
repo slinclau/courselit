@@ -83,6 +83,11 @@ async function importUnknownVideos(
     for (let page = 1; page <= MAX_LIST_PAGES; page++) {
         const { items, hasMore } = await connector.listVideos({ page });
         for (const item of items as ProviderVideo[]) {
+            // Possibly a live upload whose record is not stored yet; it is
+            // imported on a later run once it moved on.
+            if (item.status === "uploading") {
+                continue;
+            }
             const res = await StreamingVideoModel.updateOne(
                 {
                     domain: provider.domain,

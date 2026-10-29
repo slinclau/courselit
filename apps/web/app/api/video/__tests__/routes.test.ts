@@ -152,6 +152,39 @@ describe("POST /api/video/uploads", () => {
         expect(JSON.stringify(json)).not.toContain("SECRET");
     });
 
+    it("defaults an empty filetype to application/octet-stream", async () => {
+        asUser(author);
+        const { POST } = await import("../uploads/route");
+        const res = await POST(request({ body: { ...body, filetype: "" } }));
+        expect(res.status).toBe(200);
+        expect(connector.createUpload).toHaveBeenCalledWith(
+            expect.objectContaining({ filetype: "application/octet-stream" }),
+        );
+    });
+
+    it("returns a controlled 409 when the record already exists", async () => {
+        asUser(author);
+        (StreamingVideo.create as jest.Mock).mockRejectedValue(
+            Object.assign(new Error("E11000 duplicate key"), { code: 11000 }),
+        );
+        const { POST } = await import("../uploads/route");
+        const res = await POST(request({ body }));
+        expect(res.status).toBe(409);
+        expect(JSON.stringify(await res.json())).not.toContain("E11000");
+        expect(Lesson.updateOne).not.toHaveBeenCalled();
+    });
+
+    it("returns a controlled 502 when the record cannot be stored", async () => {
+        asUser(author);
+        (StreamingVideo.create as jest.Mock).mockRejectedValue(
+            new Error("db down"),
+        );
+        const { POST } = await import("../uploads/route");
+        const res = await POST(request({ body }));
+        expect(res.status).toBe(502);
+        expect(Lesson.updateOne).not.toHaveBeenCalled();
+    });
+
     it("rejects a non-author with 403", async () => {
         asUser(stranger);
         const { POST } = await import("../uploads/route");

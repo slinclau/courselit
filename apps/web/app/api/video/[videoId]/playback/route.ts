@@ -110,9 +110,15 @@ export async function GET(
     if (!config) {
         return reply({ message: "Video provider unavailable" }, 502);
     }
-    const playback = getConnector(config).getPlayback(
-        video.providerVideoId,
-        PLAYBACK_TTL_SECONDS,
-    );
+    let playback;
+    try {
+        playback = getConnector(config).getPlayback(
+            video.providerVideoId,
+            PLAYBACK_TTL_SECONDS,
+        );
+    } catch {
+        // Incomplete provider config; never echo its details.
+        return reply({ message: "Video provider unavailable" }, 502);
+    }
     return reply({ status: "ready", playback });
 }

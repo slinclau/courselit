@@ -204,6 +204,35 @@ describe("refreshStaleVideos", () => {
         expect(await StreamingVideoModel.countDocuments({})).toBe(2);
     });
 
+    it("does not import a video that is still uploading", async () => {
+        await addProvider();
+        mockListVideos.mockResolvedValue({
+            items: [
+                {
+                    providerVideoId: "live-upload",
+                    title: "Being uploaded",
+                    status: "uploading",
+                },
+                { providerVideoId: "done", title: "Done", status: "ready" },
+            ],
+            hasMore: false,
+        });
+
+        const result = await refreshStaleVideos(NOW);
+
+        expect(result.imported).toBe(1);
+        expect(
+            await StreamingVideoModel.findOne({
+                providerVideoId: "live-upload",
+            }).lean(),
+        ).toBeNull();
+        expect(
+            await StreamingVideoModel.findOne({
+                providerVideoId: "done",
+            }).lean(),
+        ).not.toBeNull();
+    });
+
     it("pages through the provider list", async () => {
         await addProvider();
         mockListVideos
