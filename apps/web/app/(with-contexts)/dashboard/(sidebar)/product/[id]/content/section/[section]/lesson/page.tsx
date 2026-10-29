@@ -47,6 +47,7 @@ import {
     LESSON_PREVIEW,
     STREAMING_VIDEO_LESSON_LABEL,
     STREAMING_VIDEO_WAIT_FOR_UPLOAD,
+    STREAMING_VIDEO_DRAFT_FAILED,
 } from "@ui-config/strings";
 import DashboardContent from "@components/admin/dashboard-content";
 import useProduct from "@/hooks/use-product";
@@ -156,6 +157,7 @@ export default function LessonPage() {
     );
     const [isLoading, setIsLoading] = useState(isEditing);
     const [videoUploading, setVideoUploading] = useState(false);
+    const [creatingDraft, setCreatingDraft] = useState(false);
 
     useEffect(() => {
         if (product && !lesson.lessonId) {
@@ -446,14 +448,22 @@ export default function LessonPage() {
             .setIsGraphQLEndpoint(true)
             .build();
 
+        setCreatingDraft(true);
         try {
             const response = await fetch.exec();
             const id = response.lesson?.lessonId;
             if (!id) {
-                return undefined;
+                throw new Error(STREAMING_VIDEO_DRAFT_FAILED);
             }
+            // As if loaded: the type cards compare against it.
+            loadedLessonRef.current = { type: lesson.type };
             setDraftLessonId(id);
-            setLesson({ ...lesson, lessonId: id, title, published: false });
+            setLesson((current) => ({
+                ...current,
+                lessonId: id,
+                title,
+                published: false,
+            }));
             window.history.replaceState(
                 null,
                 "",
@@ -467,6 +477,8 @@ export default function LessonPage() {
                 variant: "destructive",
             });
             return undefined;
+        } finally {
+            setCreatingDraft(false);
         }
     };
 
@@ -548,7 +560,7 @@ export default function LessonPage() {
                                 <RadioGroup
                                     value={lesson.type}
                                     onValueChange={(type) => {
-                                        if (!isEditing) {
+                                        if (!isEditing && !creatingDraft) {
                                             updateLesson({
                                                 type: type as LessonType,
                                             });
@@ -556,7 +568,7 @@ export default function LessonPage() {
                                         }
                                     }}
                                     className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-4"
-                                    disabled={isEditing}
+                                    disabled={isEditing || creatingDraft}
                                 >
                                     {lessonTypes.map(
                                         ({ value, label, icon: Icon }) => {
@@ -800,7 +812,10 @@ export default function LessonPage() {
                                         Cancel
                                     </Link>
                                 </Button>
-                                <Button type="submit" disabled={videoUploading}>
+                                <Button
+                                    type="submit"
+                                    disabled={videoUploading || creatingDraft}
+                                >
                                     {isEditing ? "Update" : "Save"} Lesson
                                 </Button>
                                 {videoUploading && (

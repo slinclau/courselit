@@ -18,7 +18,7 @@ Before you can upload videos, set up a video provider. See [Set up a video provi
 
 4. Enter the title of the lesson.
 
-5. Click on `Choose a video file` and pick the video from your computer. A new lesson is saved as an unpublished draft at this point. If you left the title empty, the name of the file is used; you can change it later.
+5. Click on `Choose a video file` and pick the video from your computer. A new lesson is saved as an unpublished draft at this point. If you left the title empty, the name of the file is used; you can change it later. If the upload then fails or you leave the page, the draft lesson stays in the section: pick a file again from it, or delete it.
 
 6. The upload starts right away and a progress bar shows how far it has got. The video goes directly from your browser to the video provider, not through your CourseLit server.
 

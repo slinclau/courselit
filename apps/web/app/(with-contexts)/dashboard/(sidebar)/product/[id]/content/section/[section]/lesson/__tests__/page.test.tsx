@@ -99,7 +99,10 @@ jest.mock("@components/ui/button", () => ({
 }));
 
 jest.mock("../streaming-video-upload", () => ({
-    lessonTitleFromFileName: (name: string) => name.replace(/\.[^.]+$/, ""),
+    lessonTitleFromFileName: (name: string) =>
+        jest
+            .requireActual("../streaming-video-upload")
+            .lessonTitleFromFileName(name),
     StreamingVideoUpload: ({ onUploadingChange, createLesson }: any) => (
         <div>
             {createLesson && (
@@ -408,6 +411,55 @@ describe("LessonPage", () => {
         );
         // Now an existing lesson: saving updates it, the type is locked.
         expect(await screen.findByText("Update Lesson")).toBeInTheDocument();
+        // The draft is not loaded again (that would unmount the upload).
+        expect(mockExec).toHaveBeenCalledTimes(1);
+        // The selected type card stays enabled, the others are locked.
+        expect(
+            screen.getByTestId(
+                `radio-item-${Constants.LessonType.STREAMING_VIDEO}`,
+            ),
+        ).not.toHaveAttribute("disabled");
+        expect(
+            screen.getByTestId(`radio-item-${Constants.LessonType.TEXT}`),
+        ).toHaveAttribute("disabled");
+        replaceState.mockRestore();
+    });
+
+    it("locks saving and the lesson type while the draft is being saved", async () => {
+        let resolveCreate: (value: any) => void = () => {};
+        const mockExec = jest
+            .fn()
+            .mockImplementation(
+                () => new Promise((resolve) => (resolveCreate = resolve)),
+            );
+        (FetchBuilder as unknown as jest.Mock).mockImplementation(() => ({
+            setUrl: jest.fn().mockReturnThis(),
+            setPayload: jest.fn().mockReturnThis(),
+            setIsGraphQLEndpoint: jest.fn().mockReturnThis(),
+            build: jest.fn().mockReturnThis(),
+            exec: mockExec,
+        }));
+        const replaceState = jest
+            .spyOn(window.history, "replaceState")
+            .mockImplementation(() => {});
+
+        render(<LessonPage />, { wrapper });
+        fireEvent.click(
+            screen.getByTestId(
+                `radio-item-${Constants.LessonType.STREAMING_VIDEO}`,
+            ),
+        );
+        fireEvent.click(screen.getByText("pick-file"));
+
+        await waitFor(() => expect(mockExec).toHaveBeenCalledTimes(1));
+        expect(screen.getByText("Save Lesson")).toBeDisabled();
+        fireEvent.click(
+            screen.getByTestId(`radio-item-${Constants.LessonType.TEXT}`),
+        );
+        expect(screen.getByText("pick-file")).toBeInTheDocument();
+
+        resolveCreate({ lesson: { lessonId: "draft-2" } });
+        expect(await screen.findByText("Update Lesson")).not.toBeDisabled();
         replaceState.mockRestore();
     });
 
