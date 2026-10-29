@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import StreamingVideoModel from "@models/StreamingVideo";
 import { authenticateAuthor, canManageVideoCourse } from "@/lib/video/access";
 import { refreshVideo } from "@/lib/video/refresh";
+import { getSignedThumbnailUrl } from "@/lib/video/thumbnail";
 import { error as logError } from "@/services/logger";
 
 /** POST: the browser finished sending the file; start tracking processing. */
@@ -45,7 +46,10 @@ export async function POST(
         return Response.json({
             status: updated?.status,
             durationSeconds: updated?.durationSeconds,
-            thumbnailUrl: updated?.thumbnailUrl,
+            thumbnailUrl: await getSignedThumbnailUrl(
+                domain._id.toString(),
+                updated,
+            ),
             errorMessage: updated?.errorMessage,
         });
     } catch (err: any) {

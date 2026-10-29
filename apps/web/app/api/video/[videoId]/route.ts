@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import StreamingVideoModel from "@models/StreamingVideo";
 import { authenticateAuthor, canManageVideoCourse } from "@/lib/video/access";
+import { getSignedThumbnailUrl } from "@/lib/video/thumbnail";
 
 /** GET: processing status of a streaming video (author only). */
 export async function GET(
@@ -35,7 +36,7 @@ export async function GET(
     return Response.json({
         status: video.status,
         durationSeconds: video.durationSeconds,
-        thumbnailUrl: video.thumbnailUrl,
+        thumbnailUrl: await getSignedThumbnailUrl(domain._id.toString(), video),
         errorMessage: video.errorMessage,
     });
 }

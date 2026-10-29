@@ -89,4 +89,10 @@ export interface VideoProviderConnector {
         headers: { get(name: string): string | null },
     ): { providerVideoId: string } | null;
     getPlayback(providerVideoId: string, ttlSeconds: number): Playback;
+    /** Signs a stored (unsigned) thumbnail url for viewing in a browser. */
+    getThumbnailUrl(
+        providerVideoId: string,
+        thumbnailUrl: string,
+        ttlSeconds: number,
+    ): string;
 }

@@ -75,6 +75,7 @@ const connector = {
     createUpload: jest.fn(),
     getVideo: jest.fn(),
     verifyWebhook: jest.fn(),
+    getThumbnailUrl: jest.fn(),
 };
 
 function asUser(user: any) {
@@ -111,6 +112,9 @@ beforeEach(() => {
         upload: instructions,
     });
     (StreamingVideo.create as jest.Mock).mockResolvedValue({});
+    connector.getThumbnailUrl.mockImplementation(
+        (id: string, url: string) => `${url}?signed=${id}`,
+    );
 });
 
 describe("POST /api/video/uploads", () => {
@@ -244,9 +248,73 @@ describe("video status and uploaded", () => {
         expect(await ok.json()).toEqual({
             status: "ready",
             durationSeconds: 12,
-            thumbnailUrl: "https://t",
+            thumbnailUrl: "https://t?signed=pv1",
             errorMessage: undefined,
         });
+        // Signed with the provider that hosts the video.
+        expect(getProviderConfig).toHaveBeenCalledWith("domain-id", "p1");
+        expect(connector.getThumbnailUrl).toHaveBeenCalledWith(
+            "pv1",
+            "https://t",
+            expect.any(Number),
+        );
+    });
+
+    it("GET returns no thumbnail when the provider config cannot load", async () => {
+        (StreamingVideo.findOne as jest.Mock).mockResolvedValue({
+            ...video,
+            status: "ready",
+            thumbnailUrl: "https://t",
+        });
+        (getConnector as jest.Mock).mockImplementation(() => {
+            throw new Error("missing libraryId");
+        });
+        asUser(author);
+        const { GET } = await import("../[videoId]/route");
+        const res = await GET(request({}), {
+            params: Promise.resolve({ videoId: "v1" }),
+        });
+        expect(res.status).toBe(200);
+        const json = await res.json();
+        expect(json.status).toBe("ready");
+        expect(json.thumbnailUrl).toBeUndefined();
+    });
+
+    it("GET returns no thumbnail when the provider is gone", async () => {
+        (StreamingVideo.findOne as jest.Mock).mockResolvedValue({
+            ...video,
+            status: "ready",
+            thumbnailUrl: "https://t",
+        });
+        (getProviderConfig as jest.Mock).mockResolvedValue(null);
+        asUser(author);
+        const { GET } = await import("../[videoId]/route");
+        const res = await GET(request({}), {
+            params: Promise.resolve({ videoId: "v1" }),
+        });
+        expect(res.status).toBe(200);
+        expect((await res.json()).thumbnailUrl).toBeUndefined();
+    });
+
+    it("/uploaded returns a signed thumbnail", async () => {
+        asUser(author);
+        (StreamingVideo.findOne as jest.Mock).mockResolvedValue(video);
+        (StreamingVideo.findOneAndUpdate as jest.Mock).mockResolvedValue({
+            ...video,
+            status: "ready",
+            thumbnailUrl: "https://t",
+        });
+        connector.getVideo.mockResolvedValue({
+            providerVideoId: "pv1",
+            title: "t",
+            status: "ready",
+            thumbnailUrl: "https://t",
+        });
+        const { POST } = await import("../[videoId]/uploaded/route");
+        const res = await POST(request({}), {
+            params: Promise.resolve({ videoId: "v1" }),
+        });
+        expect((await res.json()).thumbnailUrl).toBe("https://t?signed=pv1");
     });
 
     it("/uploaded moves uploading to processing, then refreshes", async () => {

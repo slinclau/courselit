@@ -104,6 +104,24 @@ export function createBunnyConnector(
         return response.json();
     }
 
+    /**
+     * Bunny directory token: one token covers every file under
+     * `/{guid}/` (playlist, segments, thumbnail).
+     */
+    function signDirectory(providerVideoId: string, ttlSeconds: number) {
+        const expires = Math.floor(Date.now() / 1000) + ttlSeconds;
+        const signaturePath = `/${providerVideoId}/`;
+        const token =
+            "HS256-" +
+            createHmac("sha256", tokenSecurityKey)
+                .update(signaturePath + expires)
+                .digest("base64url");
+        return {
+            prefix: `https://${cdnHostname}/bcdn_token=${token}&expires=${expires}&token_path=${encodeURIComponent(signaturePath)}`,
+            expires,
+        };
+    }
+
     function toProviderVideo(v: BunnyVideo): ProviderVideo {
         const video: ProviderVideo = {
             providerVideoId: v.guid,
@@ -253,18 +271,29 @@ export function createBunnyConnector(
         },
 
         getPlayback(providerVideoId, ttlSeconds): Playback {
-            const expires = Math.floor(Date.now() / 1000) + ttlSeconds;
-            const signaturePath = `/${providerVideoId}/`;
-            const token =
-                "HS256-" +
-                createHmac("sha256", tokenSecurityKey)
-                    .update(signaturePath + expires)
-                    .digest("base64url");
+            const { prefix, expires } = signDirectory(
+                providerVideoId,
+                ttlSeconds,
+            );
             return {
                 kind: "hls",
-                url: `https://${cdnHostname}/bcdn_token=${token}&expires=${expires}&token_path=${encodeURIComponent(signaturePath)}/${providerVideoId}/playlist.m3u8`,
+                url: `${prefix}/${providerVideoId}/playlist.m3u8`,
                 expiresAt: new Date(expires * 1000),
             };
+        },
+
+        getThumbnailUrl(providerVideoId, thumbnailUrl, ttlSeconds) {
+            let path: string;
+            try {
+                path = new URL(thumbnailUrl).pathname;
+            } catch {
+                return thumbnailUrl;
+            }
+            if (!path.startsWith(`/${providerVideoId}/`)) {
+                return thumbnailUrl;
+            }
+            const { prefix } = signDirectory(providerVideoId, ttlSeconds);
+            return `${prefix}${path}`;
         },
     };
 }

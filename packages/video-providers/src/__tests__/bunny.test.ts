@@ -303,6 +303,36 @@ describe("bunny getPlayback", () => {
     });
 });
 
+describe("bunny getThumbnailUrl", () => {
+    test("signs the thumbnail with the same directory token as playback", () => {
+        const before = Math.floor(Date.now() / 1000);
+        const url = getConnector(config).getThumbnailUrl(
+            "guid",
+            "https://vz-test.b-cdn.net/guid/thumbnail.jpg",
+            3600,
+        );
+        const m = url.match(
+            /^https:\/\/vz-test\.b-cdn\.net\/bcdn_token=(.+)&expires=(\d+)&token_path=%2Fguid%2F\/guid\/thumbnail\.jpg$/,
+        );
+        expect(m).not.toBeNull();
+        const [, token, expires] = m!;
+        const expected =
+            "HS256-" +
+            createHmac("sha256", "token-key")
+                .update("/guid/" + expires)
+                .digest("base64url");
+        expect(token).toBe(expected);
+        expect(Number(expires)).toBeGreaterThanOrEqual(before + 3600);
+    });
+
+    test("leaves a url outside the video directory untouched", () => {
+        const url = "https://elsewhere.example/other/thumb.jpg";
+        expect(getConnector(config).getThumbnailUrl("guid", url, 3600)).toBe(
+            url,
+        );
+    });
+});
+
 describe("bunny testConnection", () => {
     test("ok with video count", async () => {
         fetchMock.mockResolvedValueOnce(json({ totalItems: 7, items: [] }));
