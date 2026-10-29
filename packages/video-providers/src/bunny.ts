@@ -106,7 +106,8 @@ export function createBunnyConnector(
 
     /**
      * Bunny directory token: one token covers every file under
-     * `/{guid}/` (playlist, segments, thumbnail).
+     * `/{guid}/` (playlist, segments, thumbnail). The signed parameters
+     * (here only `token_path`, raw) are part of the HMAC message.
      */
     function signDirectory(providerVideoId: string, ttlSeconds: number) {
         const expires = Math.floor(Date.now() / 1000) + ttlSeconds;
@@ -114,10 +115,10 @@ export function createBunnyConnector(
         const token =
             "HS256-" +
             createHmac("sha256", tokenSecurityKey)
-                .update(signaturePath + expires)
+                .update(signaturePath + expires + `token_path=${signaturePath}`)
                 .digest("base64url");
         return {
-            prefix: `https://${cdnHostname}/bcdn_token=${token}&expires=${expires}&token_path=${encodeURIComponent(signaturePath)}`,
+            prefix: `https://${cdnHostname}/bcdn_token=${token}&token_path=${encodeURIComponent(signaturePath)}&expires=${expires}`,
             expires,
         };
     }

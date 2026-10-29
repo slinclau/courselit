@@ -284,18 +284,20 @@ describe("bunny verifyWebhook", () => {
     });
 });
 
+// Token format: bunny.net/docs/cdn/security/token-authentication/advanced.md
+// (signed message = token_path + expires + sorted params incl. token_path).
 describe("bunny getPlayback", () => {
     test("builds a token-signed HLS url", () => {
         const p = getConnector(config).getPlayback("guid", 3600);
         const m = p.url.match(
-            /^https:\/\/vz-test\.b-cdn\.net\/bcdn_token=(.+)&expires=(\d+)&token_path=%2Fguid%2F\/guid\/playlist\.m3u8$/,
+            /^https:\/\/vz-test\.b-cdn\.net\/bcdn_token=(.+)&token_path=%2Fguid%2F&expires=(\d+)\/guid\/playlist\.m3u8$/,
         );
         expect(m).not.toBeNull();
         const [, token, expires] = m!;
         const expected =
             "HS256-" +
             createHmac("sha256", "token-key")
-                .update("/guid/" + expires)
+                .update("/guid/" + expires + "token_path=/guid/")
                 .digest("base64url");
         expect(token).toBe(expected);
         expect(Number(expires) * 1000).toBe(p.expiresAt.getTime());
@@ -312,14 +314,14 @@ describe("bunny getThumbnailUrl", () => {
             3600,
         );
         const m = url.match(
-            /^https:\/\/vz-test\.b-cdn\.net\/bcdn_token=(.+)&expires=(\d+)&token_path=%2Fguid%2F\/guid\/thumbnail\.jpg$/,
+            /^https:\/\/vz-test\.b-cdn\.net\/bcdn_token=(.+)&token_path=%2Fguid%2F&expires=(\d+)\/guid\/thumbnail\.jpg$/,
         );
         expect(m).not.toBeNull();
         const [, token, expires] = m!;
         const expected =
             "HS256-" +
             createHmac("sha256", "token-key")
-                .update("/guid/" + expires)
+                .update("/guid/" + expires + "token_path=/guid/")
                 .digest("base64url");
         expect(token).toBe(expected);
         expect(Number(expires)).toBeGreaterThanOrEqual(before + 3600);
