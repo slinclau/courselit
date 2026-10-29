@@ -2,6 +2,10 @@ import React from "react";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { AddressContext } from "@components/contexts";
 import VideoProviders from "../video-providers";
+import {
+    VIDEO_PROVIDER_DISCARD_CONFIRM_ACTION,
+    VIDEO_PROVIDER_DISCARD_CONFIRM_TITLE,
+} from "@ui-config/strings";
 
 const mockExec = jest.fn();
 jest.mock("@courselit/utils", () => ({
@@ -107,5 +111,59 @@ describe("VideoProviders settings", () => {
         expect(
             screen.getByText(/Security → General: Token authentication key/),
         ).toBeTruthy();
+    });
+    const openAddDialog = async () => {
+        mockExec.mockResolvedValue({ providers: [] });
+        renderIt();
+        fireEvent.click(
+            await screen.findByRole("button", { name: "Add provider" }),
+        );
+        return screen.findByRole("dialog");
+    };
+
+    it("keeps the provider dialog open on a click outside it", async () => {
+        await openAddDialog();
+        fireEvent.pointerDown(document.body);
+        fireEvent.focusIn(document.body);
+        expect(screen.getByRole("dialog")).toBeTruthy();
+    });
+
+    it("asks before discarding typed values", async () => {
+        const dialog = await openAddDialog();
+        fireEvent.change(screen.getByLabelText("Library ID"), {
+            target: { value: "123" },
+        });
+        fireEvent.keyDown(dialog, { key: "Escape" });
+        expect(
+            await screen.findByText(VIDEO_PROVIDER_DISCARD_CONFIRM_TITLE),
+        ).toBeTruthy();
+        expect(screen.getByText("Add a video provider")).toBeTruthy();
+        fireEvent.click(
+            screen.getByRole("button", {
+                name: VIDEO_PROVIDER_DISCARD_CONFIRM_ACTION,
+            }),
+        );
+        await waitFor(() =>
+            expect(screen.queryByText("Add a video provider")).toBeNull(),
+        );
+    });
+
+    it("closes an untouched dialog without asking", async () => {
+        await openAddDialog();
+        fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+        await waitFor(() =>
+            expect(screen.queryByText("Add a video provider")).toBeNull(),
+        );
+        expect(
+            screen.queryByText(VIDEO_PROVIDER_DISCARD_CONFIRM_TITLE),
+        ).toBeNull();
+    });
+
+    it("tells password managers to leave the key fields alone", async () => {
+        await openAddDialog();
+        const secret = screen.getByLabelText("API key");
+        expect(secret.getAttribute("autocomplete")).toBe("off");
+        expect(secret.hasAttribute("data-1p-ignore")).toBe(true);
+        expect(secret.getAttribute("data-lpignore")).toBe("true");
     });
 });

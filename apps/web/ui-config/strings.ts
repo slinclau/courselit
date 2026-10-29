@@ -930,6 +930,10 @@ export const VIDEO_PROVIDER_SECRET_HELPER =
 export const VIDEO_PROVIDER_WEBHOOK_LABEL = "Webhook URL";
 export const VIDEO_PROVIDER_DIALOG_ADD_TITLE = "Add a video provider";
 export const VIDEO_PROVIDER_DIALOG_EDIT_TITLE = "Edit video provider";
+export const VIDEO_PROVIDER_DISCARD_CONFIRM_TITLE = "Discard your changes?";
+export const VIDEO_PROVIDER_DISCARD_CONFIRM_DESCRIPTION =
+    "The values you typed in this form will be lost.";
+export const VIDEO_PROVIDER_DISCARD_CONFIRM_ACTION = "Discard";
 export const VIDEO_PROVIDER_TYPES = [
     { value: "bunny", label: "Bunny Stream", disabled: false },
     { value: "cloudflare", label: "Cloudflare Stream", disabled: true },

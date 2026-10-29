@@ -71,6 +71,9 @@ import {
     VIDEO_PROVIDER_COMING_SOON,
     VIDEO_PROVIDER_DIALOG_ADD_TITLE,
     VIDEO_PROVIDER_DIALOG_EDIT_TITLE,
+    VIDEO_PROVIDER_DISCARD_CONFIRM_ACTION,
+    VIDEO_PROVIDER_DISCARD_CONFIRM_DESCRIPTION,
+    VIDEO_PROVIDER_DISCARD_CONFIRM_TITLE,
     VIDEO_PROVIDER_EDIT,
     VIDEO_PROVIDER_FIELDS,
     VIDEO_PROVIDER_FIELD_REQUIRED,
@@ -141,6 +144,7 @@ export default function VideoProviders() {
         Record<string, { ok: boolean; message: string }>
     >({});
     const [testingId, setTestingId] = useState<string | null>(null);
+    const [confirmDiscard, setConfirmDiscard] = useState(false);
 
     const form = useForm<FormData>({
         resolver: zodResolver(formSchema as any),
@@ -206,6 +210,17 @@ export default function VideoProviders() {
                 : emptyForm(),
         );
         setDialogOpen(true);
+    };
+
+    // Read during render so react-hook-form keeps isDirty up to date.
+    const { isDirty } = form.formState;
+    // Closing by Escape, X or Cancel asks first when values were typed.
+    const requestClose = () => {
+        if (isDirty) {
+            setConfirmDiscard(true);
+        } else {
+            setDialogOpen(false);
+        }
     };
 
     const type = form.watch("type");
@@ -528,8 +543,17 @@ export default function VideoProviders() {
                 </CardContent>
             </Card>
 
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogContent>
+            <Dialog
+                open={dialogOpen}
+                onOpenChange={(open) =>
+                    open ? setDialogOpen(true) : requestClose()
+                }
+            >
+                <DialogContent
+                    // A click outside (or a password manager popup taking the
+                    // focus) must not close the form and lose the typed keys.
+                    onInteractOutside={(e) => e.preventDefault()}
+                >
                     <DialogHeader>
                         <DialogTitle>
                             {editing
@@ -643,6 +667,8 @@ export default function VideoProviders() {
                                                         }
                                                         type="password"
                                                         autoComplete="off"
+                                                        data-1p-ignore
+                                                        data-lpignore="true"
                                                         placeholder={
                                                             saved
                                                                 ? `••••${saved}`
@@ -672,7 +698,7 @@ export default function VideoProviders() {
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    onClick={() => setDialogOpen(false)}
+                                    onClick={requestClose}
                                 >
                                     {BUTTON_CANCEL_TEXT}
                                 </Button>
@@ -684,6 +710,27 @@ export default function VideoProviders() {
                     </FormProvider>
                 </DialogContent>
             </Dialog>
+
+            <AlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            {VIDEO_PROVIDER_DISCARD_CONFIRM_TITLE}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {VIDEO_PROVIDER_DISCARD_CONFIRM_DESCRIPTION}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>
+                            {BUTTON_CANCEL_TEXT}
+                        </AlertDialogCancel>
+                        <AlertDialogAction onClick={() => setDialogOpen(false)}>
+                            {VIDEO_PROVIDER_DISCARD_CONFIRM_ACTION}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             <AlertDialog
                 open={!!removing}
