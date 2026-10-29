@@ -3,6 +3,7 @@ import DomainModel from "@/models/Domain";
 import UserModel from "@/models/User";
 import CourseModel from "@/models/Course";
 import LessonModel from "@/models/Lesson";
+import StreamingVideoModel from "@/models/StreamingVideo";
 import { createLesson, updateLesson } from "../logic";
 import { responses } from "@/config/strings";
 
@@ -70,6 +71,7 @@ describe("Lesson logic", () => {
 
     afterAll(async () => {
         await LessonModel.deleteMany({ domain: testDomain._id });
+        await StreamingVideoModel.deleteMany({ domain: testDomain._id });
         await CourseModel.deleteMany({ domain: testDomain._id });
         await UserModel.deleteMany({ domain: testDomain._id });
         await DomainModel.deleteOne({ _id: testDomain._id });
@@ -95,6 +97,23 @@ describe("Lesson logic", () => {
         return lesson;
     };
 
+    // Each streaming video needs its own videoId and providerVideoId, since
+    // nanoid is mocked to a constant.
+    let videoSeq = 0;
+    const video = async (courseId: string | null) => {
+        const n = ++videoSeq;
+        const doc = await StreamingVideoModel.create({
+            domain: testDomain._id,
+            videoId: id(`video-${n}`),
+            providerId: "provider-1",
+            providerVideoId: id(`provider-video-${n}`),
+            courseId,
+            title: "Video",
+            createdBy: manager.userId,
+        });
+        return doc.videoId;
+    };
+
     describe("streaming_video lessons", () => {
         it("creates a lesson with empty content", async () => {
             const lesson = await createLesson(
@@ -108,15 +127,16 @@ describe("Lesson logic", () => {
             expect(lesson.content).toEqual({});
         });
 
-        it("creates a lesson with a videoId", async () => {
+        it("creates a lesson with a videoId of the same course", async () => {
+            const videoId = await video(course.courseId);
             const lesson = await createLesson(
                 baseLesson({
                     type: Constants.LessonType.STREAMING_VIDEO,
-                    content: JSON.stringify({ videoId: "x" }),
+                    content: JSON.stringify({ videoId }),
                 }) as any,
                 ctx,
             );
-            expect(lesson.content).toEqual({ videoId: "x" });
+            expect(lesson.content).toEqual({ videoId });
         });
 
         it("rejects content with unknown keys", async () => {
@@ -148,15 +168,16 @@ describe("Lesson logic", () => {
                 type: Constants.LessonType.STREAMING_VIDEO,
                 content: "{}",
             });
+            const videoId = await video(course.courseId);
             const updated = await updateLesson(
                 {
                     id: lesson.lessonId,
                     lessonId: lesson.lessonId,
-                    content: JSON.stringify({ videoId: "v1" }),
+                    content: JSON.stringify({ videoId }),
                 } as any,
                 ctx,
             );
-            expect(updated.content).toEqual({ videoId: "v1" });
+            expect(updated.content).toEqual({ videoId });
 
             await expect(
                 updateLesson(
@@ -168,6 +189,122 @@ describe("Lesson logic", () => {
                     ctx,
                 ),
             ).rejects.toThrow(responses.content_cannot_be_null);
+        });
+    });
+
+    describe("streaming_video lesson videoId ownership", () => {
+        it("rejects a video of another course on create", async () => {
+            const videoId = await video(id("other-course"));
+            await expect(
+                createLesson(
+                    baseLesson({
+                        type: Constants.LessonType.STREAMING_VIDEO,
+                        content: JSON.stringify({ videoId }),
+                    }) as any,
+                    ctx,
+                ),
+            ).rejects.toThrow(responses.streaming_video_not_in_course);
+        });
+
+        it("rejects an unknown video on create", async () => {
+            await expect(
+                createLesson(
+                    baseLesson({
+                        type: Constants.LessonType.STREAMING_VIDEO,
+                        content: JSON.stringify({ videoId: id("missing") }),
+                    }) as any,
+                    ctx,
+                ),
+            ).rejects.toThrow(responses.streaming_video_not_in_course);
+        });
+
+        it("rejects a video of another course on update", async () => {
+            const lesson = await create({
+                type: Constants.LessonType.STREAMING_VIDEO,
+                content: "{}",
+            });
+            const videoId = await video(id("other-course"));
+            await expect(
+                updateLesson(
+                    {
+                        id: lesson.lessonId,
+                        lessonId: lesson.lessonId,
+                        content: JSON.stringify({ videoId }),
+                    } as any,
+                    ctx,
+                ),
+            ).rejects.toThrow(responses.streaming_video_not_in_course);
+            const stored = await LessonModel.findOne({
+                lessonId: lesson.lessonId,
+            });
+            expect(stored!.content).toEqual({});
+        });
+
+        it("rejects an unfiled video on update (stale editor tab)", async () => {
+            const current = await video(course.courseId);
+            const lesson = await create({
+                type: Constants.LessonType.STREAMING_VIDEO,
+                content: JSON.stringify({ videoId: current }),
+            });
+            const unfiled = await video(null);
+            await expect(
+                updateLesson(
+                    {
+                        id: lesson.lessonId,
+                        lessonId: lesson.lessonId,
+                        content: JSON.stringify({ videoId: unfiled }),
+                    } as any,
+                    ctx,
+                ),
+            ).rejects.toThrow(responses.streaming_video_not_in_course);
+        });
+
+        it("accepts a video of the same course on update", async () => {
+            const lesson = await create({
+                type: Constants.LessonType.STREAMING_VIDEO,
+                content: "{}",
+            });
+            const videoId = await video(course.courseId);
+            const updated = await updateLesson(
+                {
+                    id: lesson.lessonId,
+                    lessonId: lesson.lessonId,
+                    content: JSON.stringify({ videoId }),
+                } as any,
+                ctx,
+            );
+            expect(updated.content).toEqual({ videoId });
+        });
+
+        it("accepts an unchanged videoId, even once unfiled", async () => {
+            const videoId = await video(course.courseId);
+            const lesson = await create({
+                type: Constants.LessonType.STREAMING_VIDEO,
+                content: JSON.stringify({ videoId }),
+            });
+            await StreamingVideoModel.updateOne(
+                { domain: testDomain._id, videoId },
+                { $set: { courseId: null } },
+            );
+            const renamed = await updateLesson(
+                {
+                    id: lesson.lessonId,
+                    lessonId: lesson.lessonId,
+                    title: "Renamed",
+                } as any,
+                ctx,
+            );
+            expect(renamed.title).toBe("Renamed");
+            const resent = await updateLesson(
+                {
+                    id: lesson.lessonId,
+                    lessonId: lesson.lessonId,
+                    title: "Renamed again",
+                    content: JSON.stringify({ videoId }),
+                } as any,
+                ctx,
+            );
+            expect(resent.content).toEqual({ videoId });
         });
     });
 

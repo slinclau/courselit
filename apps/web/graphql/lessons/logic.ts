@@ -38,6 +38,7 @@ import ActivityModel from "@/models/Activity";
 import UserModel from "../../models/User";
 import { replaceTempMediaWithSealedMediaInProseMirrorDoc } from "@/lib/replace-temp-media-with-sealed-media-in-prosemirror-doc";
 import { canManageCourseInContext } from "../courses/permissions";
+import { assertLessonVideoInCourse } from "@/lib/video/lesson-video";
 
 const { permissions, quiz, scorm } = constants;
 
@@ -216,6 +217,13 @@ export const createLesson = async (
             throw new Error(responses.group_not_found);
         }
 
+        await assertLessonVideoInCourse({
+            domain: ctx.subdomain._id,
+            courseId: course.courseId,
+            type: lessonData.type,
+            content: lessonData.content,
+        });
+
         const lesson = await LessonModel.create({
             domain: ctx.subdomain._id,
             title: lessonData.title,
@@ -288,6 +296,15 @@ export const updateLesson = async (
     };
 
     lessonValidator(completeLessonData);
+    if (contentUpdated) {
+        await assertLessonVideoInCourse({
+            domain: lesson.domain,
+            courseId: lesson.courseId,
+            type: lesson.type,
+            content: lessonData.content,
+            currentVideoId: (lesson.content as any)?.videoId,
+        });
+    }
 
     // Now apply the partial updates to the lesson document
     const contentMediaIdsMarkedForDeletion: string[] = [];

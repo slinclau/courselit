@@ -117,6 +117,7 @@ export const responses = {
     community_exists: "A community with the same name already exists",
     payment_plan_required: "Add a payment plan before performing this action",
     streaming_videos_not_ready: "Some videos are not ready yet",
+    streaming_video_not_in_course: "This video does not belong to this course",
     community_requires_payment: "Community requires payment",
     community_has_no_payment_plans: "Community has no payment plans",
     duplicate_payment_plan: "A payment plan with the same type already exists",
