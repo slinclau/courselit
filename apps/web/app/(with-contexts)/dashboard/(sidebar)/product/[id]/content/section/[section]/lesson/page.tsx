@@ -13,6 +13,7 @@ import {
     File,
     Tv,
     Package,
+    Clapperboard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +45,7 @@ import {
     TOAST_TITLE_SUCCESS,
     ALPHA_LABEL,
     LESSON_PREVIEW,
+    STREAMING_VIDEO_LESSON_LABEL,
 } from "@ui-config/strings";
 import DashboardContent from "@components/admin/dashboard-content";
 import useProduct from "@/hooks/use-product";
@@ -63,6 +65,7 @@ import { Separator } from "@components/ui/separator";
 import { emptyDoc as TextEditorEmptyDoc } from "@courselit/text-editor";
 import { LessonSkeleton } from "./skeleton";
 import { ScormLessonUpload } from "./scorm-lesson-upload";
+import { StreamingVideoUpload } from "./streaming-video-upload";
 import {
     Tooltip,
     TooltipContent,
@@ -75,6 +78,11 @@ const { permissions } = UIConstants;
 const lessonTypes = [
     { value: Constants.LessonType.TEXT, label: "Text", icon: FileText },
     { value: Constants.LessonType.VIDEO, label: "Video", icon: Video },
+    {
+        value: Constants.LessonType.STREAMING_VIDEO,
+        label: STREAMING_VIDEO_LESSON_LABEL,
+        icon: Clapperboard,
+    },
     { value: Constants.LessonType.AUDIO, label: "Audio", icon: Headphones },
     { value: Constants.LessonType.PDF, label: "PDF", icon: FileImage },
     { value: Constants.LessonType.FILE, label: "File", icon: File },
@@ -276,6 +284,14 @@ export default function LessonPage() {
         return Object.keys(newErrors).length === 0;
     }, [lesson, content]);
 
+    // A streaming video lesson only ever carries the id of its video.
+    const contentForServer = () =>
+        lesson.type === Constants.LessonType.STREAMING_VIDEO
+            ? content?.videoId
+                ? { videoId: content.videoId }
+                : {}
+            : content;
+
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validateLesson()) {
@@ -306,7 +322,7 @@ export default function LessonPage() {
                         id: lesson?.lessonId,
                         title: lesson?.title,
                         downloadable: lesson?.downloadable,
-                        content: JSON.stringify(content),
+                        content: JSON.stringify(contentForServer()),
                         requiresEnrollment: lesson?.requiresEnrollment,
                         published: !!lesson?.published,
                     },
@@ -349,7 +365,7 @@ export default function LessonPage() {
                         title: lesson?.title,
                         downloadable: lesson?.downloadable,
                         type: lesson?.type?.toUpperCase(),
-                        content: JSON.stringify(content),
+                        content: JSON.stringify(contentForServer()),
                         courseId: lesson?.courseId,
                         requiresEnrollment: lesson?.requiresEnrollment,
                         groupId: lesson?.groupId,
@@ -742,6 +758,21 @@ export default function LessonPage() {
                                             Object.assign({}, lesson, updates),
                                         );
                                     }}
+                                />
+                            </div>
+                        </>
+                    )}
+                    {lesson.type === Constants.LessonType.STREAMING_VIDEO && (
+                        <>
+                            <Separator />
+                            <div className="space-y-4">
+                                <Label className="font-semibold">Video</Label>
+                                <StreamingVideoUpload
+                                    lessonId={lesson.lessonId}
+                                    content={lesson.content as any}
+                                    onVideoChange={(videoId) =>
+                                        setContent({ videoId })
+                                    }
                                 />
                             </div>
                         </>

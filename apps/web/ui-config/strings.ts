@@ -957,3 +957,23 @@ export const VIDEO_PROVIDER_FIELDS: Record<
         ],
     },
 };
+
+// Streaming video lessons
+export const STREAMING_VIDEO_LESSON_LABEL = "Video (streaming)";
+export const STREAMING_VIDEO_SAVE_FIRST = "Save the lesson to upload a video";
+export const STREAMING_VIDEO_SELECT_FILE = "Choose a video file";
+export const STREAMING_VIDEO_UPLOAD_AGAIN = "Upload again";
+export const STREAMING_VIDEO_REPLACE = "Replace video";
+export const STREAMING_VIDEO_UPLOADING = "Uploading";
+export const STREAMING_VIDEO_PROCESSING = "Video is being processed";
+export const STREAMING_VIDEO_READY = "Video is ready";
+export const STREAMING_VIDEO_ERROR = "The video could not be processed";
+export const STREAMING_VIDEO_UPLOAD_INTERRUPTED =
+    "The previous upload did not finish";
+export const STREAMING_VIDEO_UPLOAD_FAILED =
+    "The upload failed. Please try again.";
+export const STREAMING_VIDEO_NO_PROVIDER =
+    "No video provider is set up. Configure one in the school settings before uploading videos.";
+export const STREAMING_VIDEO_START_FAILED =
+    "The upload could not be started. Please try again.";
+export const STREAMING_VIDEO_THUMBNAIL_ALT = "Video thumbnail";
