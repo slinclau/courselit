@@ -30,7 +30,7 @@ You will need an account with the provider and a video library created there bef
 | Read-only API key        | The read-only API key of the library.                                                     |
 | Token authentication key | The key used to sign playback URLs so that only your learners can watch videos.           |
 
-Where to find them in the Bunny dashboard (the form shows the same hint under each field):
+Where to find them in the Bunny dashboard (the form shows the same hint under each field; menus may differ slightly as Bunny updates its dashboard):
 
 - Go to `Stream`, open your library, and open its `API` page. The `Video library ID`, the `CDN hostname`, the `API Key` and the `Read-only API Key` are shown there.
 - The token authentication key is on the library's `Security` -> `General` page, at the bottom (`Token authentication key`).
