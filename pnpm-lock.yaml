@@ -206,6 +206,9 @@ importers:
       '@courselit/utils':
         specifier: workspace:^
         version: link:../../packages/utils
+      '@courselit/video-providers':
+        specifier: workspace:^
+        version: link:../../packages/video-providers
       '@opentelemetry/api-logs':
         specifier: ^0.204.0
         version: 0.204.0

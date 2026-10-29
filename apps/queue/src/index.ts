@@ -16,8 +16,10 @@ import {
 } from "./observability/posthog";
 import { initPosthogLogs } from "./observability/logs";
 import { logger } from "./logger";
+import { startVideoWorker } from "./video/worker";
+import videoQueue from "./video/queue";
 
-const workers =
+const workers: { close(): Promise<void> }[] =
     process.env.NODE_ENV === "test"
         ? []
         : [
@@ -82,14 +84,27 @@ initPosthogLogs().catch((err) => {
     });
 });
 
-startEmailAutomation().catch((err) => {
-    logger.error(err);
-    captureError({
-        error: err,
-        source: "service.startup",
-        domainId: getDomainId(),
+startEmailAutomation()
+    .then(async () => {
+        if (process.env.NODE_ENV === "test") {
+            return;
+        }
+        // Safety net for missed streaming video webhooks.
+        workers.push(startVideoWorker());
+        await videoQueue.add(
+            "refresh-stale-videos",
+            {},
+            { repeat: { every: 300_000 }, jobId: "refresh-stale-videos" },
+        );
+    })
+    .catch((err) => {
+        logger.error(err);
+        captureError({
+            error: err,
+            source: "service.startup",
+            domainId: getDomainId(),
+        });
     });
-});
 
 const port = process.env.PORT || 80;
 app.listen(port, () => {

@@ -6,6 +6,8 @@ const config = {
         "@courselit/common-logic": "<rootDir>/../../packages/common-logic/src",
         "@courselit/common-models":
             "<rootDir>/../../packages/common-models/src",
+        "@courselit/video-providers":
+            "<rootDir>/../../packages/video-providers/src",
         "@courselit/orm-models": "<rootDir>/../../packages/orm-models/src",
         "^@courselit/email-editor$":
             "<rootDir>/__mocks__/@courselit/email-editor.ts",

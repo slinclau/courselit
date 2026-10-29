@@ -17,6 +17,7 @@ COPY packages/common-models ./packages/common-models
 COPY packages/common-logic ./packages/common-logic
 COPY packages/orm-models ./packages/orm-models
 COPY packages/utils ./packages/utils
+COPY packages/video-providers ./packages/video-providers
 COPY apps/queue ./apps/queue
 
 # Install dependencies and build

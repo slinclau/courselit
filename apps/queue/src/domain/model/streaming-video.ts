@@ -1,8 +1,7 @@
 import { StreamingVideoSchema } from "@courselit/orm-models";
 import mongoose, { Model } from "mongoose";
 
-const StreamingVideoModel =
-    (mongoose.models.StreamingVideo as Model<any>) ||
-    mongoose.model("StreamingVideo", StreamingVideoSchema);
+const StreamingVideoModel = (mongoose.models.StreamingVideo ||
+    mongoose.model("StreamingVideo", StreamingVideoSchema)) as Model<any>;
 
 export default StreamingVideoModel;

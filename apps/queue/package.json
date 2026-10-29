@@ -18,6 +18,7 @@
         "@courselit/email-editor": "workspace:^",
         "@courselit/orm-models": "workspace:^",
         "@courselit/utils": "workspace:^",
+        "@courselit/video-providers": "workspace:^",
         "@opentelemetry/api-logs": "^0.204.0",
         "@opentelemetry/exporter-logs-otlp-http": "^0.204.0",
         "@opentelemetry/resources": "^2.1.0",
