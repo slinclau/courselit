@@ -941,19 +941,39 @@ export const VIDEO_PROVIDER_TYPES = [
 export const VIDEO_PROVIDER_FIELDS: Record<
     string,
     {
-        settings: { key: string; label: string }[];
-        secrets: { key: string; label: string }[];
+        settings: { key: string; label: string; hint?: string }[];
+        secrets: { key: string; label: string; hint?: string }[];
     }
 > = {
     bunny: {
         settings: [
-            { key: "libraryId", label: "Library ID" },
-            { key: "cdnHostname", label: "CDN hostname" },
+            {
+                key: "libraryId",
+                label: "Library ID",
+                hint: "Bunny: Stream → your library → API page: Video library ID.",
+            },
+            {
+                key: "cdnHostname",
+                label: "CDN hostname",
+                hint: "Bunny: Stream → your library → API page: CDN hostname, e.g. vz-xxxx.b-cdn.net.",
+            },
         ],
         secrets: [
-            { key: "apiKey", label: "API key" },
-            { key: "readOnlyApiKey", label: "Read-only API key" },
-            { key: "tokenSecurityKey", label: "Token authentication key" },
+            {
+                key: "apiKey",
+                label: "API key",
+                hint: "Bunny: Stream → your library → API page: API Key.",
+            },
+            {
+                key: "readOnlyApiKey",
+                label: "Read-only API key",
+                hint: "Bunny: Stream → your library → API page: Read-only API Key. Used to check webhooks.",
+            },
+            {
+                key: "tokenSecurityKey",
+                label: "Token authentication key",
+                hint: "Bunny: Stream → your library → Security → General: Token authentication key, at the bottom. Turn on CDN token authentication on the same page.",
+            },
         ],
     },
 };

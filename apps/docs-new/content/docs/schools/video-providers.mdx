@@ -29,16 +29,18 @@ You will need an account with the provider and a video library created there bef
 | Read-only API key        | The read-only API key of the library.                                                     |
 | Token authentication key | The key used to sign playback URLs so that only your learners can watch videos.           |
 
-Where to find them in the Bunny dashboard (menus may differ slightly as Bunny updates its dashboard):
+Where to find them in the Bunny dashboard (the form shows the same hint under each field):
 
-- Go to `Stream`, open your library, and look for the `API` section. The library ID, the API key, the read-only API key and the CDN hostname are shown there.
-- The token authentication key is part of the security settings of the library's pull zone (the CDN). Open the pull zone's `Security` settings and look for `Token Authentication`.
+- Go to `Stream`, open your library, and open its `API` page. The `Video library ID`, the `CDN hostname`, the `API Key` and the `Read-only API Key` are shown there.
+- The token authentication key is on the library's `Security` -> `General` page, at the bottom (`Token authentication key`).
 
 Secret values (the API keys and the token authentication key) are never shown again after saving. CourseLit only shows their last 4 characters. When you edit a provider, leave a secret field empty to keep the saved value.
 
 ## Turn on token authentication in Bunny
 
-CourseLit plays videos through signed URLs. For this to work, token authentication (CDN) must be enabled on the pull zone of your library. Enable it in the pull zone's security settings in the Bunny dashboard, and make sure the key you enter in CourseLit is the same key shown there.
+CourseLit plays videos through signed URLs. For this to work, turn on `CDN token authentication` on the library's `Security` -> `General` page in the Bunny dashboard, and make sure the key you enter in CourseLit is the `Token authentication key` shown on that page.
+
+If you fill in the `Allowed domains` list on the same page, it must contain the domain of your school, otherwise Bunny refuses to serve the videos to your learners' browsers.
 
 ## Add the webhook
 
@@ -46,7 +48,7 @@ Bunny can tell CourseLit when a video has finished processing, so that the lesso
 
 1. In `Settings` -> `Streaming`, copy the `Webhook URL` shown on your provider.
 
-2. In the Bunny dashboard, open your library and paste the URL into the library's webhook settings.
+2. In the Bunny dashboard, open your library's `API` page and paste the URL into the `Webhook URL` field.
 
 If the webhook cannot reach your school, for example when you run CourseLit on your own computer, CourseLit still re-checks the status of videos in the background every 5 minutes.
 

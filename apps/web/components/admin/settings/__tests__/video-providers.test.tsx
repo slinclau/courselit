@@ -92,4 +92,20 @@ describe("VideoProviders settings", () => {
             ),
         );
     });
+    it("tells where to find each Bunny value in the Bunny dashboard", async () => {
+        mockExec.mockResolvedValue({ providers: [] });
+        renderIt();
+        fireEvent.click(
+            await screen.findByRole("button", { name: "Add provider" }),
+        );
+        expect(
+            await screen.findByText(/API page: Video library ID/),
+        ).toBeTruthy();
+        expect(screen.getByText(/API page: CDN hostname/)).toBeTruthy();
+        expect(screen.getByText(/API page: API Key/)).toBeTruthy();
+        expect(screen.getByText(/API page: Read-only API Key/)).toBeTruthy();
+        expect(
+            screen.getByText(/Security → General: Token authentication key/),
+        ).toBeTruthy();
+    });
 });

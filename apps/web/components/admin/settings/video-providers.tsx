@@ -54,6 +54,7 @@ import {
     FormField,
     FormItem,
     FormLabel,
+    FormDescription,
     FormMessage,
 } from "@components/ui/form";
 import {
@@ -612,6 +613,11 @@ export default function VideoProviders() {
                                                     value={field.value || ""}
                                                 />
                                             </FormControl>
+                                            {setting.hint && (
+                                                <FormDescription>
+                                                    {setting.hint}
+                                                </FormDescription>
+                                            )}
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -644,6 +650,11 @@ export default function VideoProviders() {
                                                         }
                                                     />
                                                 </FormControl>
+                                                {secret.hint && (
+                                                    <FormDescription>
+                                                        {secret.hint}
+                                                    </FormDescription>
+                                                )}
                                                 {saved && (
                                                     <CardDescription>
                                                         {
