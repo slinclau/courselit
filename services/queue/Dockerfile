@@ -21,6 +21,7 @@ COPY packages/video-providers ./packages/video-providers
 COPY apps/queue ./apps/queue
 
 # Install dependencies and build
+ENV NODE_OPTIONS=--max-old-space-size=4096
 RUN pnpm install
 RUN pnpm build
 
