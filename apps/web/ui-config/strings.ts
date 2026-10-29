@@ -977,3 +977,4 @@ export const STREAMING_VIDEO_NO_PROVIDER =
 export const STREAMING_VIDEO_START_FAILED =
     "The upload could not be started. Please try again.";
 export const STREAMING_VIDEO_THUMBNAIL_ALT = "Video thumbnail";
+export const STREAMING_VIDEO_WAIT_FOR_UPLOAD = "Wait for the upload to finish";

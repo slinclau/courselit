@@ -86,10 +86,28 @@ jest.mock("../lesson-content-renderer", () => ({
 }));
 
 jest.mock("@components/ui/button", () => ({
-    Button: ({ onClick, children, type }: any) => (
-        <button onClick={onClick} type={type} data-testid="button">
+    Button: ({ onClick, children, type, disabled }: any) => (
+        <button
+            onClick={onClick}
+            type={type}
+            disabled={disabled}
+            data-testid="button"
+        >
             {children}
         </button>
+    ),
+}));
+
+jest.mock("../streaming-video-upload", () => ({
+    StreamingVideoUpload: ({ onUploadingChange }: any) => (
+        <div>
+            <button type="button" onClick={() => onUploadingChange(true)}>
+                start-upload
+            </button>
+            <button type="button" onClick={() => onUploadingChange(false)}>
+                finish-upload
+            </button>
+        </div>
     ),
 }));
 
@@ -340,6 +358,40 @@ describe("LessonPage", () => {
     });
 
     describe("Editing existing lessons", () => {
+        it("disables saving while a streaming video upload runs", async () => {
+            mockLessonId = "lesson-sv";
+            const mockExec = jest.fn().mockResolvedValue({
+                lesson: {
+                    lessonId: "lesson-sv",
+                    title: "Streaming lesson",
+                    type: "STREAMING_VIDEO",
+                    content: {},
+                    requiresEnrollment: true,
+                },
+            });
+            (FetchBuilder as unknown as jest.Mock).mockImplementation(() => ({
+                setUrl: jest.fn().mockReturnThis(),
+                setPayload: jest.fn().mockReturnThis(),
+                setIsGraphQLEndpoint: jest.fn().mockReturnThis(),
+                build: jest.fn().mockReturnThis(),
+                exec: mockExec,
+            }));
+
+            render(<LessonPage />, { wrapper });
+            await screen.findByDisplayValue("Streaming lesson");
+            const save = screen.getByText("Update Lesson");
+            expect(save).not.toBeDisabled();
+
+            fireEvent.click(screen.getByText("start-upload"));
+            expect(save).toBeDisabled();
+            expect(
+                screen.getByText("Wait for the upload to finish"),
+            ).toBeInTheDocument();
+
+            fireEvent.click(screen.getByText("finish-upload"));
+            expect(save).not.toBeDisabled();
+        });
+
         it("loads and edits a TEXT lesson successfully", async () => {
             mockLessonId = "lesson-123";
             const mockExec = jest

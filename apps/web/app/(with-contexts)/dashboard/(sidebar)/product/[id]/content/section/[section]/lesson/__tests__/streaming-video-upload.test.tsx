@@ -221,4 +221,66 @@ describe("StreamingVideoUpload", () => {
         unmount();
         expect(tusInstances[0].abort).toHaveBeenCalled();
     });
+
+    it("reports a running upload and guards against leaving the page", async () => {
+        const add = jest.spyOn(window, "addEventListener");
+        const remove = jest.spyOn(window, "removeEventListener");
+        fetchMock.mockImplementation((url: string) =>
+            url.endsWith("/uploads")
+                ? jsonResponse(uploadInstructions)
+                : jsonResponse({ status: "processing" }),
+        );
+        const onUploadingChange = jest.fn();
+        setup({ onUploadingChange });
+        pickFile();
+        await waitFor(() => expect(tusInstances).toHaveLength(1));
+        expect(onUploadingChange).toHaveBeenLastCalledWith(true);
+        expect(add).toHaveBeenCalledWith("beforeunload", expect.any(Function));
+
+        await act(async () => {
+            tusInstances[0].options.onSuccess();
+        });
+        expect(onUploadingChange).toHaveBeenLastCalledWith(false);
+        expect(remove).toHaveBeenCalledWith(
+            "beforeunload",
+            expect.any(Function),
+        );
+        add.mockRestore();
+        remove.mockRestore();
+    });
+
+    it("shows a start failure when the uploads response is not JSON", async () => {
+        fetchMock.mockImplementation(() =>
+            Promise.resolve({
+                ok: true,
+                status: 200,
+                json: () => Promise.reject(new Error("bad json")),
+            }),
+        );
+        setup();
+        pickFile();
+        expect(
+            await screen.findByText(
+                "The upload could not be started. Please try again.",
+            ),
+        ).toBeInTheDocument();
+    });
+
+    it("does not poll after a tus failure", async () => {
+        fetchMock.mockImplementation(() => jsonResponse(uploadInstructions));
+        setup();
+        pickFile();
+        await waitFor(() => expect(tusInstances).toHaveLength(1));
+        await act(async () => {
+            tusInstances[0].options.onError(new Error("boom"));
+        });
+        expect(
+            await screen.findByText("The upload failed. Please try again."),
+        ).toBeInTheDocument();
+        const calls = fetchMock.mock.calls.length;
+        await act(async () => {
+            jest.advanceTimersByTime(60000);
+        });
+        expect(fetchMock.mock.calls.length).toBe(calls);
+    });
 });

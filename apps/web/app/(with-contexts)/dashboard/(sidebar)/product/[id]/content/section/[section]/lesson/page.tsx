@@ -46,6 +46,7 @@ import {
     ALPHA_LABEL,
     LESSON_PREVIEW,
     STREAMING_VIDEO_LESSON_LABEL,
+    STREAMING_VIDEO_WAIT_FOR_UPLOAD,
 } from "@ui-config/strings";
 import DashboardContent from "@components/admin/dashboard-content";
 import useProduct from "@/hooks/use-product";
@@ -149,6 +150,7 @@ export default function LessonPage() {
               : { value: "" },
     );
     const [isLoading, setIsLoading] = useState(isEditing);
+    const [videoUploading, setVideoUploading] = useState(false);
 
     useEffect(() => {
         if (product && !lesson.lessonId) {
@@ -733,9 +735,14 @@ export default function LessonPage() {
                                         Cancel
                                     </Link>
                                 </Button>
-                                <Button type="submit">
+                                <Button type="submit" disabled={videoUploading}>
                                     {isEditing ? "Update" : "Save"} Lesson
                                 </Button>
+                                {videoUploading && (
+                                    <p className="text-xs text-muted-foreground">
+                                        {STREAMING_VIDEO_WAIT_FOR_UPLOAD}
+                                    </p>
+                                )}
                             </div>
                         </div>
                     </form>
@@ -770,6 +777,7 @@ export default function LessonPage() {
                                 <StreamingVideoUpload
                                     lessonId={lesson.lessonId}
                                     content={lesson.content as any}
+                                    onUploadingChange={setVideoUploading}
                                     onVideoChange={(videoId) =>
                                         setContent({ videoId })
                                     }

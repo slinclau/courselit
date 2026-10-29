@@ -30,6 +30,7 @@ interface StreamingVideoUploadProps {
     lessonId?: string;
     content?: StreamingVideoContent;
     onVideoChange?: (videoId: string) => void;
+    onUploadingChange?: (running: boolean) => void;
 }
 
 function formatDuration(totalSeconds: number) {
@@ -42,6 +43,7 @@ export function StreamingVideoUpload({
     lessonId,
     content,
     onVideoChange,
+    onUploadingChange,
 }: StreamingVideoUploadProps) {
     const address = useContext(AddressContext);
     const [videoId, setVideoId] = useState<string | undefined>(
@@ -89,10 +91,23 @@ export function StreamingVideoUpload({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    useEffect(() => {
+        onUploadingChange?.(running);
+        if (!running) return;
+        const guard = (e: BeforeUnloadEvent) => {
+            e.preventDefault();
+            e.returnValue = "";
+        };
+        window.addEventListener("beforeunload", guard);
+        return () => window.removeEventListener("beforeunload", guard);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [running]);
+
     // Poll only while the provider is still working on the video.
     const shouldPoll =
         !!videoId &&
         !running &&
+        !failure &&
         (status === "uploading" || status === "processing");
     useEffect(() => {
         if (!shouldPoll || !videoId) return;
@@ -148,7 +163,14 @@ export function StreamingVideoUpload({
             );
             return;
         }
-        const { videoId: newVideoId, upload } = await res.json();
+        let newVideoId: string;
+        let upload: any;
+        try {
+            ({ videoId: newVideoId, upload } = await res.json());
+        } catch {
+            if (mountedRef.current) setFailure(STREAMING_VIDEO_START_FAILED);
+            return;
+        }
         if (!mountedRef.current) return;
 
         setVideoId(newVideoId);
