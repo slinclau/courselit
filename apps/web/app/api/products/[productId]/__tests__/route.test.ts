@@ -146,6 +146,31 @@ describe("GET /api/products/{productId}", () => {
         expect(body).not.toHaveProperty("description");
     });
 
+    it("returns 422 with the reason when publishing is blocked by unfinished videos", async () => {
+        (updateCourse as jest.Mock).mockRejectedValue(
+            new Error("Some videos are not ready yet: Lesson A"),
+        );
+
+        const { PATCH } = await import("../route");
+        const response = await PATCH(
+            {
+                ...request,
+                json: jest.fn().mockResolvedValue({ published: true }),
+            } as unknown as NextRequest,
+            {
+                params: Promise.resolve({ productId: "course-1" }),
+            },
+        );
+
+        expect(response.status).toBe(422);
+        await expect(response.json()).resolves.toEqual({
+            error: {
+                code: "unprocessable_entity",
+                message: "Some videos are not ready yet: Lesson A",
+            },
+        });
+    });
+
     it("returns bad request when the update body is not valid JSON", async () => {
         const { PATCH } = await import("../route");
         const response = await PATCH(

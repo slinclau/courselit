@@ -547,7 +547,7 @@
                         }
                     },
                     "422": {
-                        "description": "Product could not be updated.",
+                        "description": "Product could not be updated, for example when publishing a course that still has streaming video lessons whose video is not ready.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -2688,7 +2688,8 @@
                             "pdf",
                             "file",
                             "embed",
-                            "quiz"
+                            "quiz",
+                            "streaming_video"
                         ]
                     },
                     "content": {
@@ -2755,7 +2756,8 @@
                             "pdf",
                             "file",
                             "embed",
-                            "quiz"
+                            "quiz",
+                            "streaming_video"
                         ]
                     },
                     "content": {

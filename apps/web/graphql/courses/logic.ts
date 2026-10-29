@@ -244,6 +244,7 @@ export const updateCourse = async (
         );
     }
 
+    const wasPublished = !!course.published;
     for (const key of Object.keys(courseData)) {
         if (key === "id" || key === "slug") {
             continue;
@@ -263,7 +264,7 @@ export const updateCourse = async (
         course[key] = courseData[key];
     }
 
-    course = await validateCourse(course, ctx);
+    course = await validateCourse(course, ctx, wasPublished);
     if (Object.prototype.hasOwnProperty.call(courseData, "description")) {
         for (const mediaId of mediaIdsMarkedForDeletion) {
             await deleteMedia(mediaId);

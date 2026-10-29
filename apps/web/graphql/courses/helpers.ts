@@ -8,11 +8,13 @@ import { addGroup } from "./logic";
 import { Constants, Course, Progress, User } from "@courselit/common-models";
 import { getPlans } from "../paymentplans/logic";
 import { InternalCourse } from "@courselit/orm-models";
+import { assertStreamingVideosReady } from "../../lib/video/publish-check";
 import { generateUniquePageId, isDuplicateKeyError } from "../pages/helpers";
 
 export const validateCourse = async (
     courseData: InternalCourse,
     ctx: GQLContext,
+    wasPublished?: boolean,
 ) => {
     if (courseData.type === Constants.CourseType.BLOG) {
         if (courseData.published && !courseData.description) {
@@ -36,6 +38,13 @@ export const validateCourse = async (
             });
             if (existingPaymentPlans.length === 0) {
                 throw new Error(responses.payment_plan_required);
+            }
+
+            if (wasPublished === false) {
+                await assertStreamingVideosReady({
+                    domain: ctx.subdomain._id,
+                    courseId: courseData.courseId,
+                });
             }
         }
 

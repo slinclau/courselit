@@ -95,6 +95,7 @@ const supportedLessonTypes = [
     "file",
     "embed",
     "quiz",
+    "streaming_video",
 ];
 
 const lessonContentSchema = {
@@ -361,7 +362,9 @@ export const productsApiOpenApi = {
                     400: error(
                         "Malformed JSON body, non-object body, or unsupported product field.",
                     ),
-                    422: error("Product could not be updated."),
+                    422: error(
+                        "Product could not be updated, for example when publishing a course that still has streaming video lessons whose video is not ready.",
+                    ),
                 },
             },
             delete: {

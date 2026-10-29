@@ -10,6 +10,8 @@ import ProductDiscussionSummaryModel from "@models/ProductDiscussionSummary";
 import RateLimitEventModel from "@models/RateLimitEvent";
 import ActivityModel from "@models/Activity";
 import LessonModel from "@models/Lesson";
+import StreamingVideoModel from "@models/StreamingVideo";
+import PaymentPlanModel from "@models/PaymentPlan";
 import MembershipModel from "@models/Membership";
 import PageModel from "@models/Page";
 import constants from "@/config/constants";
@@ -2330,6 +2332,146 @@ describe("updateCourse", () => {
                 },
             ),
         ).rejects.toThrow(responses.blog_description_empty);
+    });
+
+    describe("publishing with streaming video lessons", () => {
+        const makeCtx = () => {
+            const publishingAdmin = adminUser.toObject();
+            publishingAdmin.permissions = [
+                constants.permissions.manageAnyCourse,
+                constants.permissions.publishCourse,
+            ];
+            return {
+                subdomain: testDomain,
+                user: publishingAdmin,
+                address: "",
+            };
+        };
+
+        const setup = async (
+            key: string,
+            lessons: {
+                title: string;
+                videoStatus?: string;
+                noVideo?: boolean;
+            }[],
+            published = false,
+        ) => {
+            const courseId = id(`sv-${key}`);
+            const lessonIds: string[] = [];
+            for (let i = 0; i < lessons.length; i++) {
+                const l = lessons[i];
+                const lessonId = id(`sv-${key}-lesson-${i}`);
+                lessonIds.push(lessonId);
+                let content: Record<string, unknown> = {};
+                if (!l.noVideo) {
+                    const videoId = id(`sv-${key}-video-${i}`);
+                    await StreamingVideoModel.create({
+                        domain: testDomain._id,
+                        videoId,
+                        providerId: "p",
+                        providerVideoId: `pv-${videoId}`,
+                        title: l.title,
+                        status: l.videoStatus,
+                        createdBy: adminUser.userId,
+                    });
+                    content = { videoId };
+                }
+                await LessonModel.create({
+                    domain: testDomain._id,
+                    lessonId,
+                    title: l.title,
+                    type: CommonConstants.LessonType.STREAMING_VIDEO,
+                    content,
+                    creatorId: adminUser.userId,
+                    courseId,
+                    groupId: "g",
+                });
+            }
+            await CourseModel.create({
+                domain: testDomain._id,
+                courseId,
+                title: id(`sv-${key}-title`),
+                creatorId: adminUser.userId,
+                deleteable: true,
+                lessons: lessonIds,
+                type: "course",
+                privacy: "unlisted",
+                costType: "free",
+                cost: 0,
+                slug: id(`sv-${key}-slug`),
+                published,
+            });
+            await PaymentPlanModel.create({
+                domain: testDomain._id,
+                planId: id(`sv-${key}-plan`),
+                name: "Free",
+                type: CommonConstants.PaymentPlanType.FREE,
+                entityId: courseId,
+                entityType: CommonConstants.MembershipEntityType.COURSE,
+                userId: adminUser.userId,
+            });
+            return courseId;
+        };
+
+        afterEach(async () => {
+            await LessonModel.deleteMany({ domain: testDomain._id });
+            await StreamingVideoModel.deleteMany({ domain: testDomain._id });
+            await PaymentPlanModel.deleteMany({ domain: testDomain._id });
+        });
+
+        it("blocks publishing while a video is processing and names the lesson", async () => {
+            const courseId = await setup("processing", [
+                { title: "Ready one", videoStatus: "ready" },
+                { title: "Still encoding", videoStatus: "processing" },
+            ]);
+            const attempt = updateCourse(
+                { id: courseId as any, published: true },
+                makeCtx(),
+            );
+            await expect(attempt).rejects.toThrow(
+                responses.streaming_videos_not_ready,
+            );
+            await expect(attempt).rejects.toThrow("Still encoding");
+            await expect(attempt).rejects.not.toThrow("Ready one");
+        });
+
+        it("blocks publishing when a lesson has no video yet", async () => {
+            const courseId = await setup("empty", [
+                { title: "Empty lesson", noVideo: true },
+            ]);
+            await expect(
+                updateCourse(
+                    { id: courseId as any, published: true },
+                    makeCtx(),
+                ),
+            ).rejects.toThrow("Empty lesson");
+        });
+
+        it("publishes when every video is ready", async () => {
+            const courseId = await setup("ready", [
+                { title: "A", videoStatus: "ready" },
+                { title: "B", videoStatus: "ready" },
+            ]);
+            const result = await updateCourse(
+                { id: courseId as any, published: true },
+                makeCtx(),
+            );
+            expect(result.published).toBe(true);
+        });
+
+        it("does not check an already published course on other updates", async () => {
+            const courseId = await setup(
+                "already",
+                [{ title: "Encoding", videoStatus: "processing" }],
+                true,
+            );
+            const result = await updateCourse(
+                { id: courseId as any, tags: ["x"] },
+                makeCtx(),
+            );
+            expect(result.published).toBe(true);
+        });
     });
 });
 

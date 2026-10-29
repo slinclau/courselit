@@ -116,6 +116,7 @@ export const responses = {
     invalid_category: "Invalid category",
     community_exists: "A community with the same name already exists",
     payment_plan_required: "Add a payment plan before performing this action",
+    streaming_videos_not_ready: "Some videos are not ready yet",
     community_requires_payment: "Community requires payment",
     community_has_no_payment_plans: "Community has no payment plans",
     duplicate_payment_plan: "A payment plan with the same type already exists",
