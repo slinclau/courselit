@@ -127,6 +127,8 @@ describe("StreamingVideoUpload", () => {
             "Week 1.2 Intro",
         );
         expect(lessonTitleFromFileName("Week 1.2")).toBe("Week 1.2");
+        expect(lessonTitleFromFileName("Week 3.intro")).toBe("Week 3.intro");
+        expect(lessonTitleFromFileName("clip.MP4")).toBe("clip");
     });
 
     it("uploads with tus, shows progress, then the processing state", async () => {

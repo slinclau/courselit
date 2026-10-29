@@ -39,8 +39,10 @@ interface StreamingVideoUploadProps {
 /** Default title of a lesson created from a video file: its name. */
 export function lessonTitleFromFileName(name: string) {
     const trimmed = name.trim();
-    // Only a short extension with a letter (".mp4", ".mov"), not "1.2".
-    return trimmed.replace(/(.)\.(?=[^.\s]*[a-z])[a-z0-9]{1,5}$/i, "$1");
+    return trimmed.replace(
+        /(.)\.(mp4|mov|m4v|webm|mkv|avi|mpe?g|ogv|3gp|wmv|flv)$/i,
+        "$1",
+    );
 }
 
 function formatDuration(totalSeconds: number) {

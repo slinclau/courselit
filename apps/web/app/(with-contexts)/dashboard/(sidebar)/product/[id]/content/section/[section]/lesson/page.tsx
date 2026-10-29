@@ -461,7 +461,8 @@ export default function LessonPage() {
             setLesson((current) => ({
                 ...current,
                 lessonId: id,
-                title,
+                // Keep a title typed while the draft was being saved.
+                title: current.title?.trim() ? current.title : title,
                 published: false,
             }));
             window.history.replaceState(

@@ -29,7 +29,7 @@ export function getConnector(config: ProviderConfig): VideoProviderConnector {
 }
 
 /** An upload the provider still has not received after this is an error. */
-export const UPLOAD_TIMEOUT_MS = 24 * 60 * 60 * 1000;
+const UPLOAD_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Pure: the fields to `$set` on a StreamingVideo after reading it from the
