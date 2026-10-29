@@ -43,6 +43,7 @@ import {
     SIDEBAR_MENU_USERS,
     SITE_CUSTOMISATIONS_SETTING_HEADER,
     SITE_MISCELLANEOUS_SETTING_HEADER,
+    VIDEO_PROVIDERS_TAB_HEADER,
     SITE_SETTINGS_SECTION_GENERAL,
     SITE_SETTINGS_SECTION_MAILS,
     SITE_SETTINGS_SECTION_PAYMENT,
@@ -289,6 +290,13 @@ function getSidebarItems({
                 isActive:
                     `${path}?tab=${tab}` ===
                     `/dashboard/settings?tab=${SITE_MISCELLANEOUS_SETTING_HEADER}`,
+            },
+            {
+                title: VIDEO_PROVIDERS_TAB_HEADER,
+                url: `/dashboard/settings?tab=${VIDEO_PROVIDERS_TAB_HEADER}`,
+                isActive:
+                    `${path}?tab=${tab}` ===
+                    `/dashboard/settings?tab=${VIDEO_PROVIDERS_TAB_HEADER}`,
             },
         ];
         navMainItems.push({

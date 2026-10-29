@@ -902,7 +902,7 @@ export const EMAIL_EDITOR_EMAIL_EDIT_HEADER = "Editing email";
 export const EMAIL_EDITOR_TEMPLATE_EDIT_HEADER = "Editing template";
 export const LOGIN_FORM_PERSONAL_INFORMATION_LABEL = "Personal Information";
 
-export const VIDEO_PROVIDERS_TAB_HEADER = "Video";
+export const VIDEO_PROVIDERS_TAB_HEADER = "Streaming";
 export const VIDEO_PROVIDERS_HEADER = "Video providers";
 export const VIDEO_PROVIDERS_DESCRIPTION =
     "Providers that host and stream the videos of your streaming video lessons.";
