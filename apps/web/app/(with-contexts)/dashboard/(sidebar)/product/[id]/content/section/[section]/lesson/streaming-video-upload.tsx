@@ -16,6 +16,7 @@ import {
     STREAMING_VIDEO_READY,
     STREAMING_VIDEO_REPLACE,
     STREAMING_VIDEO_SAVE_FIRST,
+    STREAMING_VIDEO_SAVES_DRAFT,
     STREAMING_VIDEO_SELECT_FILE,
     STREAMING_VIDEO_START_FAILED,
     STREAMING_VIDEO_UPLOAD_AGAIN,
@@ -31,6 +32,14 @@ interface StreamingVideoUploadProps {
     content?: StreamingVideoContent;
     onVideoChange?: (videoId: string) => void;
     onUploadingChange?: (running: boolean) => void;
+    /** Saves a new lesson so a video can be attached; returns its id. */
+    createLesson?: (file: File) => Promise<string | undefined>;
+}
+
+/** Default title of a lesson created from a video file: its name. */
+export function lessonTitleFromFileName(name: string) {
+    const trimmed = name.trim();
+    return trimmed.replace(/(.)\.[^.]+$/, "$1");
 }
 
 function formatDuration(totalSeconds: number) {
@@ -44,6 +53,7 @@ export function StreamingVideoUpload({
     content,
     onVideoChange,
     onUploadingChange,
+    createLesson,
 }: StreamingVideoUploadProps) {
     const address = useContext(AddressContext);
     const [videoId, setVideoId] = useState<string | undefined>(
@@ -55,6 +65,7 @@ export function StreamingVideoUpload({
     const [errorMessage, setErrorMessage] = useState<string>();
     const [failure, setFailure] = useState<string>();
     const [running, setRunning] = useState(false);
+    const [creatingLesson, setCreatingLesson] = useState(false);
     const [progress, setProgress] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
     const uploadRef = useRef<tus.Upload | null>(null);
@@ -136,7 +147,16 @@ export function StreamingVideoUpload({
     };
 
     const startUpload = async (file: File) => {
-        if (!lessonId) return;
+        let targetLessonId = lessonId;
+        if (!targetLessonId && createLesson) {
+            setCreatingLesson(true);
+            try {
+                targetLessonId = await createLesson(file);
+            } finally {
+                if (mountedRef.current) setCreatingLesson(false);
+            }
+        }
+        if (!targetLessonId || !mountedRef.current) return;
         setFailure(undefined);
         setProgress(0);
         let res: Response;
@@ -145,7 +165,7 @@ export function StreamingVideoUpload({
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    lessonId,
+                    lessonId: targetLessonId,
                     filename: file.name,
                     filetype: file.type,
                 }),
@@ -208,7 +228,7 @@ export function StreamingVideoUpload({
         tusUpload.start();
     };
 
-    if (!lessonId) {
+    if (!lessonId && !createLesson) {
         return (
             <p className="text-xs text-muted-foreground flex items-center gap-2">
                 <Info className="w-4 h-4" />
@@ -220,6 +240,7 @@ export function StreamingVideoUpload({
     const interrupted = !running && status === "uploading" && !failure;
     const canPick =
         !running &&
+        !creatingLesson &&
         (!videoId ||
             !!failure ||
             interrupted ||
@@ -263,6 +284,12 @@ export function StreamingVideoUpload({
                 </p>
             )}
             {failure && <p className="text-sm text-red-500">{failure}</p>}
+            {!lessonId && (
+                <p className="text-xs text-muted-foreground flex items-center gap-2">
+                    <Info className="w-4 h-4" />
+                    {STREAMING_VIDEO_SAVES_DRAFT}
+                </p>
+            )}
             <input
                 ref={inputRef}
                 type="file"

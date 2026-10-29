@@ -66,7 +66,10 @@ import { Separator } from "@components/ui/separator";
 import { emptyDoc as TextEditorEmptyDoc } from "@courselit/text-editor";
 import { LessonSkeleton } from "./skeleton";
 import { ScormLessonUpload } from "./scorm-lesson-upload";
-import { StreamingVideoUpload } from "./streaming-video-upload";
+import {
+    StreamingVideoUpload,
+    lessonTitleFromFileName,
+} from "./streaming-video-upload";
 import {
     Tooltip,
     TooltipContent,
@@ -99,7 +102,9 @@ export default function LessonPage() {
     const params = useParams();
     const searchParams = useSearchParams();
     const productId = params.id as string;
-    const lessonId = searchParams.get("id");
+    // Set when a streaming video lesson was saved as a draft on this page.
+    const [draftLessonId, setDraftLessonId] = useState<string | null>(null);
+    const lessonId = searchParams.get("id") ?? draftLessonId;
     const sectionId = params.section as string;
     const isEditing = !!lessonId;
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -170,7 +175,9 @@ export default function LessonPage() {
     };
 
     useEffect(() => {
-        lessonId && loadLesson(lessonId);
+        // A draft saved here is already in state; loading it again would
+        // unmount the upload that is starting.
+        lessonId && lessonId !== draftLessonId && loadLesson(lessonId);
     }, [lessonId]);
 
     const loadLesson = async (id: string) => {
@@ -402,6 +409,64 @@ export default function LessonPage() {
                 variant: "destructive",
             });
         } finally {
+        }
+    };
+
+    // Saves a new streaming video lesson as an unpublished draft so the
+    // picked file can be uploaded right away, without leaving the page.
+    const createDraftForVideo = async (
+        file: File,
+    ): Promise<string | undefined> => {
+        const title =
+            lesson.title?.trim() || lessonTitleFromFileName(file.name);
+        const query = `
+            mutation ($lessonData: LessonInput!) {
+                lesson: createLesson(lessonData: $lessonData) {
+                    lessonId
+                }
+            }
+        `;
+        const fetch = new FetchBuilder()
+            .setUrl(`${address.backend}/api/graph`)
+            .setPayload({
+                query,
+                variables: {
+                    lessonData: {
+                        title,
+                        downloadable: lesson?.downloadable,
+                        type: lesson?.type?.toUpperCase(),
+                        content: JSON.stringify({}),
+                        courseId: lesson?.courseId,
+                        requiresEnrollment: lesson?.requiresEnrollment,
+                        groupId: lesson?.groupId,
+                        published: false,
+                    },
+                },
+            })
+            .setIsGraphQLEndpoint(true)
+            .build();
+
+        try {
+            const response = await fetch.exec();
+            const id = response.lesson?.lessonId;
+            if (!id) {
+                return undefined;
+            }
+            setDraftLessonId(id);
+            setLesson({ ...lesson, lessonId: id, title, published: false });
+            window.history.replaceState(
+                null,
+                "",
+                `/dashboard/product/${productId}/content/section/${sectionId}/lesson?id=${id}`,
+            );
+            return id;
+        } catch (err: any) {
+            toast({
+                title: TOAST_TITLE_ERROR,
+                description: err.message,
+                variant: "destructive",
+            });
+            return undefined;
         }
     };
 
@@ -778,6 +843,7 @@ export default function LessonPage() {
                                     lessonId={lesson.lessonId}
                                     content={lesson.content as any}
                                     onUploadingChange={setVideoUploading}
+                                    createLesson={createDraftForVideo}
                                     onVideoChange={(videoId) =>
                                         setContent({ videoId })
                                     }

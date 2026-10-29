@@ -99,8 +99,19 @@ jest.mock("@components/ui/button", () => ({
 }));
 
 jest.mock("../streaming-video-upload", () => ({
-    StreamingVideoUpload: ({ onUploadingChange }: any) => (
+    lessonTitleFromFileName: (name: string) => name.replace(/\.[^.]+$/, ""),
+    StreamingVideoUpload: ({ onUploadingChange, createLesson }: any) => (
         <div>
+            {createLesson && (
+                <button
+                    type="button"
+                    onClick={() =>
+                        createLesson(new File(["x"], "Intro clip.mov"))
+                    }
+                >
+                    pick-file
+                </button>
+            )}
             <button type="button" onClick={() => onUploadingChange(true)}>
                 start-upload
             </button>
@@ -355,6 +366,49 @@ describe("LessonPage", () => {
         await waitFor(() => {
             expect(mockExec).toHaveBeenCalled();
         });
+    });
+
+    it("saves a new streaming video lesson as a draft when a file is picked", async () => {
+        const mockExec = jest.fn().mockResolvedValue({
+            lesson: { lessonId: "draft-1" },
+        });
+        const setPayload = jest.fn().mockReturnThis();
+        (FetchBuilder as unknown as jest.Mock).mockImplementation(() => ({
+            setUrl: jest.fn().mockReturnThis(),
+            setPayload,
+            setIsGraphQLEndpoint: jest.fn().mockReturnThis(),
+            build: jest.fn().mockReturnThis(),
+            exec: mockExec,
+        }));
+        const replaceState = jest.spyOn(window.history, "replaceState");
+
+        render(<LessonPage />, { wrapper });
+        fireEvent.click(
+            screen.getByTestId(
+                `radio-item-${Constants.LessonType.STREAMING_VIDEO}`,
+            ),
+        );
+        fireEvent.click(screen.getByText("pick-file"));
+
+        await waitFor(() => expect(mockExec).toHaveBeenCalledTimes(1));
+        const { lessonData } = setPayload.mock.calls[0][0].variables;
+        expect(lessonData).toMatchObject({
+            title: "Intro clip",
+            type: "STREAMING_VIDEO",
+            published: false,
+            courseId: "product-1",
+            groupId: "section-1",
+        });
+        await waitFor(() =>
+            expect(replaceState).toHaveBeenCalledWith(
+                null,
+                "",
+                "/dashboard/product/product-1/content/section/section-1/lesson?id=draft-1",
+            ),
+        );
+        // Now an existing lesson: saving updates it, the type is locked.
+        expect(await screen.findByText("Update Lesson")).toBeInTheDocument();
+        replaceState.mockRestore();
     });
 
     describe("Editing existing lessons", () => {

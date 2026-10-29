@@ -8,7 +8,10 @@ import {
 } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { AddressContext } from "@components/contexts";
-import { StreamingVideoUpload } from "../streaming-video-upload";
+import {
+    StreamingVideoUpload,
+    lessonTitleFromFileName,
+} from "../streaming-video-upload";
 
 const tusInstances: any[] = [];
 jest.mock("tus-js-client", () => ({
@@ -82,6 +85,44 @@ describe("StreamingVideoUpload", () => {
         expect(
             screen.queryByTestId("streaming-video-input"),
         ).not.toBeInTheDocument();
+    });
+
+    it("saves a draft lesson first when the lesson has no id yet", async () => {
+        const createLesson = jest.fn().mockResolvedValue("lesson-new");
+        fetchMock.mockImplementation(() => jsonResponse(uploadInstructions));
+        setup({ lessonId: undefined, createLesson });
+        expect(
+            screen.getByText(
+                "Choosing a file saves the lesson as an unpublished draft",
+            ),
+        ).toBeInTheDocument();
+
+        const file = pickFile();
+
+        await waitFor(() => expect(tusInstances).toHaveLength(1));
+        expect(createLesson).toHaveBeenCalledWith(file);
+        expect(JSON.parse(fetchMock.mock.calls[0][1].body).lessonId).toBe(
+            "lesson-new",
+        );
+    });
+
+    it("does not upload when the draft lesson could not be saved", async () => {
+        const createLesson = jest.fn().mockResolvedValue(undefined);
+        setup({ lessonId: undefined, createLesson });
+        pickFile();
+        await waitFor(() => expect(createLesson).toHaveBeenCalled());
+        await act(async () => {});
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(tusInstances).toHaveLength(0);
+        expect(screen.getByTestId("streaming-video-input")).toBeInTheDocument();
+    });
+
+    it("derives a lesson title from the file name", () => {
+        expect(lessonTitleFromFileName("Intro clip.final.mov")).toBe(
+            "Intro clip.final",
+        );
+        expect(lessonTitleFromFileName("  movie  ")).toBe("movie");
+        expect(lessonTitleFromFileName(".mov")).toBe(".mov");
     });
 
     it("uploads with tus, shows progress, then the processing state", async () => {
