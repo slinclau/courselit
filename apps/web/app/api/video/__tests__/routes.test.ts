@@ -378,6 +378,13 @@ describe("video status and uploaded", () => {
                 status: { $in: ["uploading", "processing"] },
             });
             expect(claim[1].$set.lastCheckedAt).toBeInstanceOf(Date);
+            // The refresh only writes over the status it was computed from.
+            const write = (StreamingVideo.findOneAndUpdate as jest.Mock).mock
+                .calls[1];
+            expect(write[0]).toMatchObject({
+                videoId: "v1",
+                status: "processing",
+            });
         });
 
         it("does not call the provider for a video checked recently", async () => {

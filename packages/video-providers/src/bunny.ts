@@ -8,6 +8,7 @@ import type {
 } from "@courselit/common-models";
 
 const API_BASE = "https://video.bunnycdn.com";
+const REQUEST_TIMEOUT_MS = 15000;
 const TUS_ENDPOINT = `${API_BASE}/tusupload`;
 const UPLOAD_TTL_SECONDS = 6 * 60 * 60;
 const ITEMS_PER_PAGE = 100;
@@ -90,6 +91,7 @@ export function createBunnyConnector(
         const response = await fetch(`${API_BASE}${path}`, {
             method: init.method || "GET",
             headers,
+            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
             body:
                 init.body !== undefined ? JSON.stringify(init.body) : undefined,
         });

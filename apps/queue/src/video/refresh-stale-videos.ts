@@ -6,7 +6,6 @@ import { logger } from "../logger";
 import { loadAllProviders, LoadedProvider } from "./load-providers";
 
 const STALE_AFTER_MS = 5 * 60 * 1000;
-const UPLOAD_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 const MAX_LIST_PAGES = 1000;
 const IMPORTED_BY = "system";
 
@@ -27,7 +26,6 @@ async function refreshProviderVideos(
     result: Result,
 ) {
     const staleBefore = new Date(now.getTime() - STALE_AFTER_MS);
-    const uploadDeadline = new Date(now.getTime() - UPLOAD_TIMEOUT_MS);
     const stale = await StreamingVideoModel.find({
         domain: provider.domain,
         providerId: provider.providerId,
@@ -44,22 +42,8 @@ async function refreshProviderVideos(
             const providerVideo = await connector.getVideo(
                 video.providerVideoId,
             );
-            let update: Record<string, any> = applyProviderVideo(
-                video,
-                providerVideo,
-                now,
-            );
-            if (
-                providerVideo?.status === "uploading" &&
-                video.createdAt &&
-                new Date(video.createdAt) < uploadDeadline
-            ) {
-                update = {
-                    status: "error",
-                    errorMessage: "Upload did not complete",
-                    lastCheckedAt: now,
-                };
-            }
+            // Also turns uploads not finished after 24 h into errors.
+            const update = applyProviderVideo(video, providerVideo, now);
             await StreamingVideoModel.updateOne(
                 { _id: video._id },
                 { $set: update },

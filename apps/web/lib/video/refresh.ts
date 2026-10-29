@@ -24,10 +24,19 @@ export async function refreshVideo(domainId: string, videoId: string) {
         video.providerVideoId,
     );
     const update = applyProviderVideo(video, providerVideo, new Date());
-    return StreamingVideoModel.findOneAndUpdate(
-        { domain: domainId, videoId },
+    // Only write over the status this update was computed from: a webhook
+    // or another request may have moved the video on meanwhile.
+    const updated = await StreamingVideoModel.findOneAndUpdate(
+        { domain: domainId, videoId, status: video.status },
         { $set: update },
         { new: true },
+    );
+    return (
+        updated ??
+        StreamingVideoModel.findOne({
+            domain: domainId,
+            videoId,
+        })
     );
 }
 

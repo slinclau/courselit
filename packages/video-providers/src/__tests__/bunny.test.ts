@@ -410,6 +410,33 @@ describe("applyProviderVideo", () => {
         );
         expect(r).toEqual({ lastCheckedAt: now });
     });
+    test("an upload not finished after 24 h -> error", () => {
+        const created = (hours: number) =>
+            new Date(now.getTime() - hours * 3600 * 1000);
+        const stuck = {
+            providerVideoId: "g",
+            title: "t",
+            status: "uploading" as const,
+        };
+        expect(
+            applyProviderVideo(
+                { status: "uploading", createdAt: created(25) },
+                stuck,
+                now,
+            ),
+        ).toEqual({
+            status: "error",
+            errorMessage: "Upload did not complete",
+            lastCheckedAt: now,
+        });
+        expect(
+            applyProviderVideo(
+                { status: "uploading", createdAt: created(2) },
+                stuck,
+                now,
+            ),
+        ).toEqual({ status: "uploading", lastCheckedAt: now });
+    });
     test("null -> error", () => {
         expect(applyProviderVideo({ status: "processing" }, null, now)).toEqual(
             {

@@ -28,12 +28,16 @@ export function getConnector(config: ProviderConfig): VideoProviderConnector {
     }
 }
 
+/** An upload the provider still has not received after this is an error. */
+export const UPLOAD_TIMEOUT_MS = 24 * 60 * 60 * 1000;
+
 /**
  * Pure: the fields to `$set` on a StreamingVideo after reading it from the
  * provider. `readyAt` is only set when the video becomes ready.
  */
 export function applyProviderVideo(
-    current: Pick<StreamingVideo, "status" | "readyAt">,
+    current: Pick<StreamingVideo, "status" | "readyAt"> &
+        Partial<Pick<StreamingVideo, "createdAt">>,
     providerVideo: ProviderVideo | null,
     now: Date,
 ): Partial<StreamingVideo> {
@@ -41,6 +45,18 @@ export function applyProviderVideo(
         return {
             status: "error",
             errorMessage: "Video not found at provider",
+            lastCheckedAt: now,
+        };
+    }
+    if (
+        providerVideo.status === "uploading" &&
+        current.createdAt &&
+        new Date(current.createdAt).getTime() <
+            now.getTime() - UPLOAD_TIMEOUT_MS
+    ) {
+        return {
+            status: "error",
+            errorMessage: "Upload did not complete",
             lastCheckedAt: now,
         };
     }
