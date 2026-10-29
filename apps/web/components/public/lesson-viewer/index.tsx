@@ -37,6 +37,7 @@ import { isEnrolled, isLessonCompleted } from "../../../ui-lib/utils";
 import LessonEmbedViewer from "./embed-viewer";
 import QuizViewer from "./quiz-viewer";
 import ScormViewer from "./scorm-viewer";
+import { StreamingVideoViewer } from "./streaming-video-viewer";
 import { getUserProfile } from "@/app/(with-contexts)/helpers";
 import WidgetErrorBoundary from "../base-layout/template/widget-error-boundary";
 import { Button, Header1, Text1 } from "@courselit/page-primitives";
@@ -304,6 +305,31 @@ export const LessonViewer = ({
                                 />
                             </div>
                         )}
+                        {String.prototype.toUpperCase.call(
+                            Constants.LessonType.STREAMING_VIDEO,
+                        ) === lesson.type &&
+                            (lesson.content as { videoId?: string })
+                                ?.videoId && (
+                                <StreamingVideoViewer
+                                    key={lesson.lessonId}
+                                    videoId={
+                                        (lesson.content as { videoId: string })
+                                            .videoId
+                                    }
+                                    lessonId={lesson.lessonId}
+                                    courseId={lesson.courseId}
+                                    address={address}
+                                    onEnded={() => {
+                                        if (
+                                            isViewerEnrolled &&
+                                            !isPreview &&
+                                            !isCompleted
+                                        ) {
+                                            markAsCompleted();
+                                        }
+                                    }}
+                                />
+                            )}
                         {String.prototype.toUpperCase.call(
                             LESSON_TYPE_AUDIO,
                         ) === lesson.type && (

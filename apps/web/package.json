@@ -82,6 +82,7 @@
         "email-reply-parser": "^2.3.9",
         "graphql": "^16.10.0",
         "graphql-type-json": "^0.3.2",
+        "hls-video-element": "1.5.12",
         "jsdom": "^26.1.0",
         "lodash.debounce": "^4.0.8",
         "lucide-react": "^0.553.0",

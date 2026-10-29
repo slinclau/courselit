@@ -465,6 +465,9 @@ importers:
       graphql-type-json:
         specifier: ^0.3.2
         version: 0.3.2(graphql@16.11.0)
+      hls-video-element:
+        specifier: 1.5.12
+        version: 1.5.12
       jsdom:
         specifier: ^26.1.0
         version: 26.1.0
@@ -6873,6 +6876,9 @@ packages:
   custom-error-instance@2.1.1:
     resolution: {integrity: sha512-p6JFxJc3M4OTD2li2qaHkDCw9SfMw82Ldr6OC9Je1aXiGfhx2W8p3GaoeaGrPJTUN9NirTM/KTxHWMUdR1rsUg==}
 
+  custom-media-element@1.4.7:
+    resolution: {integrity: sha512-rNBpnzkTAWPhE3cSajteAvg9qfFTsTd0b6dt33y9Q0Pq8afMvxL7SbvxzbUCqIRk/raIJHbJrHheCPADdK9+Ww==}
+
   d3-array@3.2.4:
     resolution: {integrity: sha512-tdQAmyA18i4J7wprpYq8ClcxZy3SC31QMeByyCFyRt7BVHdREQZ5lpzoe5mFEYZUWe+oq8HBvk9JjpibyEV4Jg==}
     engines: {node: '>=12'}
@@ -8344,6 +8350,12 @@ packages:
   highlightjs-vue@1.0.0:
     resolution: {integrity: sha512-PDEfEF102G23vHmPhLyPboFCD+BkMGu+GuJe2d9/eH4FsCwvgBpnc9n0pGE+ffKdph38s6foEZiEjdgHdzp+IA==}
 
+  hls-video-element@1.5.12:
+    resolution: {integrity: sha512-VV2F/uP7ntW3WFWtxjTA5kT+4+azfhc4H1GUhPOGHubpcRWuwxddMZ60ujxOTZODmbNdSimySSloJOJjPuw1OQ==}
+
+  hls.js@1.7.4:
+    resolution: {integrity: sha512-3GlxGdPvT2YHvQYOt+yOzT/DEior/qJVNIylHA77kgeoBTdQQqi70GwefNEUmHQeNGyjC8U62+bruqW/Tpm+tg==}
+
   html-encoding-sniffer@3.0.0:
     resolution: {integrity: sha512-oWv4T4yJ52iKrufjnyZPkrN0CH3QnrUqdB6In1g5Fe1mia8GmF36gnfNySxoZtxD5+NmYw1EElVXiBk93UeskA==}
     engines: {node: '>=12'}
@@ -9488,6 +9500,9 @@ packages:
 
   mdurl@2.0.0:
     resolution: {integrity: sha512-Lf+9+2r+Tdp5wXDXC4PcIBjTDtq4UKjCPMQhKIuzpJNW0b96kVqSwW0bT7FhRSfmAiFYgP+SCRvdrDozfh0U5w==}
+
+  media-tracks@0.3.5:
+    resolution: {integrity: sha512-l54rkKXlLBt3ob3zOLWHcnjvwUmX5bNEZ70igyapOZZC9imzqBmq1oz8p2roiV04KhjblFIi2hetLPF1oYVLRA==}
 
   media-typer@0.3.0:
     resolution: {integrity: sha512-dq+qelQ9akHpcOl/gUVRTxVIOkAJ1wR3QAvb4RsVjS8oVoFjDGTc679wJYmUmknUF5HwMLOgb5O+a3KxfWapPQ==}
@@ -20092,6 +20107,8 @@ snapshots:
 
   custom-error-instance@2.1.1: {}
 
+  custom-media-element@1.4.7: {}
+
   d3-array@3.2.4:
     dependencies:
       internmap: 2.0.3
@@ -21920,6 +21937,14 @@ snapshots:
 
   highlightjs-vue@1.0.0: {}
 
+  hls-video-element@1.5.12:
+    dependencies:
+      custom-media-element: 1.4.7
+      hls.js: 1.7.4
+      media-tracks: 0.3.5
+
+  hls.js@1.7.4: {}
+
   html-encoding-sniffer@3.0.0:
     dependencies:
       whatwg-encoding: 2.0.0
@@ -23600,6 +23625,8 @@ snapshots:
       '@types/mdast': 4.0.4
 
   mdurl@2.0.0: {}
+
+  media-tracks@0.3.5: {}
 
   media-typer@0.3.0: {}
 
