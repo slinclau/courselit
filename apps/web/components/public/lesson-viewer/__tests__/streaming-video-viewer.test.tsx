@@ -1,6 +1,9 @@
 import React from "react";
 import { act, render, screen, waitFor } from "@testing-library/react";
-import { StreamingVideoViewer } from "../streaming-video-viewer";
+import {
+    StreamingVideoLesson,
+    StreamingVideoViewer,
+} from "../streaming-video-viewer";
 
 jest.mock("hls-video-element", () => ({}));
 
@@ -104,6 +107,55 @@ describe("StreamingVideoViewer", () => {
         expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
+    it("keeps playing and retries in 30 s when a refresh fails", async () => {
+        jest.useFakeTimers();
+        const fetchMock = jest
+            .fn()
+            .mockImplementationOnce(() => respond(200, ready(3600 * 1000)))
+            .mockImplementationOnce(() => Promise.reject(new Error("offline")))
+            .mockImplementationOnce(() => respond(502, {}))
+            .mockImplementation(() => respond(200, ready(3600 * 1000)));
+        global.fetch = fetchMock as any;
+        const { container } = render(<StreamingVideoViewer {...baseProps} />);
+        await act(async () => {});
+        expect(container.querySelector("hls-video")).not.toBeNull();
+
+        // First refresh, 5 minutes before expiry: network failure.
+        await act(async () => {
+            jest.advanceTimersByTime(3600 * 1000 - 5 * 60 * 1000);
+        });
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        expect(container.querySelector("hls-video")).not.toBeNull();
+        expect(
+            screen.queryByText("The video could not be processed"),
+        ).toBeNull();
+
+        // Retry after 30 s: provider error, still playing.
+        await act(async () => {
+            jest.advanceTimersByTime(29 * 1000);
+        });
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        await act(async () => {
+            jest.advanceTimersByTime(1000);
+        });
+        expect(fetchMock).toHaveBeenCalledTimes(3);
+        expect(container.querySelector("hls-video")).not.toBeNull();
+
+        // Next retry succeeds.
+        await act(async () => {
+            jest.advanceTimersByTime(30 * 1000);
+        });
+        expect(fetchMock).toHaveBeenCalledTimes(4);
+        expect(container.querySelector("hls-video")).not.toBeNull();
+    });
+
+    it("shows the error placeholder when the first load fails", async () => {
+        global.fetch = jest.fn().mockReturnValue(respond(502, {})) as any;
+        const { container } = render(<StreamingVideoViewer {...baseProps} />);
+        await screen.findByText("The video could not be processed");
+        expect(container.querySelector("hls-video")).toBeNull();
+    });
+
     it("stops refreshing once unmounted", async () => {
         jest.useFakeTimers();
         const fetchMock = jest
@@ -117,5 +169,23 @@ describe("StreamingVideoViewer", () => {
             jest.advanceTimersByTime(4000 * 1000);
         });
         expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe("StreamingVideoLesson", () => {
+    it("shows the processing placeholder when the lesson has no video yet", async () => {
+        const fetchMock = jest.fn();
+        global.fetch = fetchMock as any;
+        render(<StreamingVideoLesson {...baseProps} videoId={undefined} />);
+        expect(screen.getByText("Video is being processed")).toBeTruthy();
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("plays the lesson's video when it has one", async () => {
+        global.fetch = jest.fn().mockReturnValue(respond(200, ready())) as any;
+        const { container } = render(<StreamingVideoLesson {...baseProps} />);
+        await waitFor(() =>
+            expect(container.querySelector("hls-video")).not.toBeNull(),
+        );
     });
 });

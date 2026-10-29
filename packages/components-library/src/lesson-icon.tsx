@@ -15,6 +15,7 @@ import {
 export default function LessonIcon({ type }: { type: LessonType }) {
     switch (type.toLowerCase() as LessonType) {
         case "video":
+        case "streaming_video":
             return <Video />;
         case "audio":
             return <Speaker />;

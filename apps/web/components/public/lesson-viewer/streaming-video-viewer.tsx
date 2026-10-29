@@ -7,6 +7,22 @@ import { VideoPlaceholder } from "@/components/video/video-placeholder";
 const REFRESH_BEFORE_EXPIRY_MS = 5 * 60 * 1000;
 const MIN_REFRESH_DELAY_MS = 30 * 1000;
 
+interface StreamingVideoLessonProps
+    extends Omit<StreamingVideoViewerProps, "videoId"> {
+    videoId?: string;
+}
+
+/** A streaming video lesson: the player, or a placeholder until a video is set. */
+export function StreamingVideoLesson({
+    videoId,
+    ...props
+}: StreamingVideoLessonProps) {
+    if (!videoId) {
+        return <VideoPlaceholder status="processing" />;
+    }
+    return <StreamingVideoViewer videoId={videoId} {...props} />;
+}
+
 interface StreamingVideoViewerProps {
     videoId: string;
     lessonId: string;
@@ -48,6 +64,7 @@ export function StreamingVideoViewer({
     useEffect(() => {
         let cancelled = false;
         let timer: ReturnType<typeof setTimeout> | undefined;
+        let playing = false;
 
         const load = async () => {
             let next: PlaybackState;
@@ -78,7 +95,15 @@ export function StreamingVideoViewer({
             }
             if (cancelled) return;
 
+            if (playing && next.kind === "pending") {
+                // A failed refresh must not interrupt a playing video: keep
+                // the current URL and try again shortly.
+                timer = setTimeout(load, MIN_REFRESH_DELAY_MS);
+                return;
+            }
+
             if (next.kind === "ready") {
+                playing = true;
                 const el = videoRef.current as HTMLVideoElement | null;
                 if (el && !Number.isNaN(el.currentTime)) {
                     resumeRef.current = {
