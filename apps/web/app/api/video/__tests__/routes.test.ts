@@ -329,6 +329,110 @@ describe("video status and uploaded", () => {
         expect((await res.json()).thumbnailUrl).toBeUndefined();
     });
 
+    describe("GET re-reads a pending video from the provider", () => {
+        const minutesAgo = (n: number) => new Date(Date.now() - n * 60000);
+        const get = async () => {
+            const { GET } = await import("../[videoId]/route");
+            return GET(request({}), {
+                params: Promise.resolve({ videoId: "v1" }),
+            });
+        };
+
+        beforeEach(() => {
+            asUser(author);
+            (StreamingVideo.findOneAndUpdate as jest.Mock).mockReset();
+            connector.getVideo.mockReset();
+        });
+
+        it("refreshes a processing video last checked over a minute ago", async () => {
+            const stored = {
+                ...video,
+                status: "processing",
+                lastCheckedAt: minutesAgo(2),
+            };
+            (StreamingVideo.findOne as jest.Mock).mockResolvedValue(stored);
+            (StreamingVideo.findOneAndUpdate as jest.Mock)
+                .mockResolvedValueOnce(stored)
+                .mockResolvedValueOnce({
+                    ...stored,
+                    status: "ready",
+                    durationSeconds: 21,
+                });
+            connector.getVideo.mockResolvedValue({
+                status: "ready",
+                durationSeconds: 21,
+            });
+
+            const res = await get();
+
+            expect(connector.getVideo).toHaveBeenCalledWith("pv1");
+            const json = await res.json();
+            expect(json.status).toBe("ready");
+            expect(json.durationSeconds).toBe(21);
+            // The claim only matches a pending video not checked recently.
+            const claim = (StreamingVideo.findOneAndUpdate as jest.Mock).mock
+                .calls[0];
+            expect(claim[0]).toMatchObject({
+                domain: "domain-id",
+                videoId: "v1",
+                status: { $in: ["uploading", "processing"] },
+            });
+            expect(claim[1].$set.lastCheckedAt).toBeInstanceOf(Date);
+        });
+
+        it("does not call the provider for a video checked recently", async () => {
+            (StreamingVideo.findOne as jest.Mock).mockResolvedValue({
+                ...video,
+                status: "processing",
+                lastCheckedAt: minutesAgo(0.25),
+            });
+            const res = await get();
+            expect(connector.getVideo).not.toHaveBeenCalled();
+            expect(StreamingVideo.findOneAndUpdate).not.toHaveBeenCalled();
+            expect((await res.json()).status).toBe("processing");
+        });
+
+        it("does not call the provider when another request claimed the check", async () => {
+            (StreamingVideo.findOne as jest.Mock).mockResolvedValue({
+                ...video,
+                status: "uploading",
+            });
+            (
+                StreamingVideo.findOneAndUpdate as jest.Mock
+            ).mockResolvedValueOnce(null);
+            const res = await get();
+            expect(connector.getVideo).not.toHaveBeenCalled();
+            expect((await res.json()).status).toBe("uploading");
+        });
+
+        it("does not refresh a ready video", async () => {
+            (StreamingVideo.findOne as jest.Mock).mockResolvedValue({
+                ...video,
+                status: "ready",
+                lastCheckedAt: minutesAgo(60),
+            });
+            await get();
+            expect(connector.getVideo).not.toHaveBeenCalled();
+            expect(StreamingVideo.findOneAndUpdate).not.toHaveBeenCalled();
+        });
+
+        it("returns the stored status when the provider fails", async () => {
+            const stored = {
+                ...video,
+                status: "processing",
+                lastCheckedAt: minutesAgo(5),
+            };
+            (StreamingVideo.findOne as jest.Mock).mockResolvedValue(stored);
+            (
+                StreamingVideo.findOneAndUpdate as jest.Mock
+            ).mockResolvedValueOnce(stored);
+            connector.getVideo.mockRejectedValue(new Error("Bunny down"));
+            const res = await get();
+            expect(res.status).toBe(200);
+            expect((await res.json()).status).toBe("processing");
+        });
+    });
+
     it("/uploaded returns a signed thumbnail", async () => {
         asUser(author);
         (StreamingVideo.findOne as jest.Mock).mockResolvedValue(video);

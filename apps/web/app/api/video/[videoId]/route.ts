@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import StreamingVideoModel from "@models/StreamingVideo";
 import { authenticateAuthor, canManageVideoCourse } from "@/lib/video/access";
+import { refreshVideoIfStale } from "@/lib/video/refresh";
 import { getSignedThumbnailUrl } from "@/lib/video/thumbnail";
 
 /** GET: processing status of a streaming video (author only). */
@@ -15,23 +16,25 @@ export async function GET(
     }
     const { domain, user } = ctx;
 
-    const video = await StreamingVideoModel.findOne({
+    const stored = await StreamingVideoModel.findOne({
         domain: domain._id,
         videoId,
     });
-    if (!video) {
+    if (!stored) {
         return Response.json({ message: "Video not found" }, { status: 404 });
     }
     if (
         !(await canManageVideoCourse({
             domain,
             user,
-            courseId: video.courseId,
-            createdBy: video.createdBy,
+            courseId: stored.courseId,
+            createdBy: stored.createdBy,
         }))
     ) {
         return Response.json({ message: "Forbidden" }, { status: 403 });
     }
+
+    const video = await refreshVideoIfStale(domain._id.toString(), stored);
 
     return Response.json({
         status: video.status,
