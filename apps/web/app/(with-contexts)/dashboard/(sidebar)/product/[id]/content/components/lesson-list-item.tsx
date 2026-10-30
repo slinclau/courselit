@@ -1,25 +1,26 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, FileText, HelpCircle, Video } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { DragHandle } from "@courselit/icons";
 import { PRODUCT_STATUS_DRAFT } from "@ui-config/strings";
-import { CSSProperties } from "react";
+import { CSSProperties, createElement } from "react";
+import { getLessonTypeIcon } from "@components/admin/products/lesson-type-icons";
 import { LessonSummary } from "./helpers";
 import type { useMultiContainerSortableItem } from "./multi-container-drag-and-drop";
 
 function LessonTypeIcon({ type }: { type: string }) {
-    switch (type) {
-        case "video":
-            return <Video className="h-4 w-4 text-muted-foreground" />;
-        case "text":
-            return <FileText className="h-4 w-4 text-muted-foreground" />;
-        case "quiz":
-            return <HelpCircle className="h-4 w-4 text-muted-foreground" />;
-        default:
-            return null;
+    const icon = getLessonTypeIcon(type);
+    if (!icon) {
+        return null;
     }
+    const props = {
+        className: "h-4 w-4 shrink-0 text-muted-foreground",
+        "aria-hidden": true,
+        "data-testid": `lesson-type-icon-${type.toLowerCase()}`,
+    };
+    return createElement(icon, props);
 }
 
 export default function LessonListItem({

@@ -1,5 +1,6 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
+import { Constants } from "@courselit/common-models";
 import LessonListItem from "../lesson-list-item";
 import type { useMultiContainerSortableItem } from "../multi-container-drag-and-drop";
 
@@ -85,4 +86,38 @@ describe("LessonListItem", () => {
 
         expect(screen.getByTestId("lesson-drag-handle")).not.toBeDisabled();
     });
+    // The API returns the GraphQL enum name ("STREAMING_VIDEO"), the editor
+    // the stored value ("streaming_video"): both get the type's icon.
+    it.each(Object.values(Constants.LessonType))(
+        "shows the icon of %s lessons",
+        (type) => {
+            for (const value of [type, type.toUpperCase()]) {
+                const { unmount } = render(
+                    <LessonListItem
+                        lesson={
+                            {
+                                lessonId: "lesson-1",
+                                title: "Lesson 1",
+                                type: value,
+                                groupId: "group-1",
+                                published: true,
+                            } as any
+                        }
+                        sectionId="group-1"
+                        productId="product-1"
+                        disabled={false}
+                        isDragging={false}
+                        attributes={{} as any}
+                        listeners={{} as any}
+                        setNodeRef={jest.fn() as any}
+                        style={{}}
+                    />,
+                );
+                expect(
+                    screen.getByTestId(`lesson-type-icon-${type}`),
+                ).toBeTruthy();
+                unmount();
+            }
+        },
+    );
 });
