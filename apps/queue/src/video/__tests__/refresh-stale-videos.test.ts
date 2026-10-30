@@ -387,6 +387,55 @@ describe("refreshStaleVideos", () => {
             expect(await StreamingVideoModel.countDocuments({})).toBe(2);
         });
 
+        it("treats an undefined provider video as not found", async () => {
+            await addProvider();
+            const gone = await addVideo({
+                status: "ready",
+                createdAt: longAgo(),
+            });
+            const kept = await addVideo({
+                status: "ready",
+                createdAt: longAgo(),
+            });
+            mockListVideos.mockResolvedValue(listing(kept.providerVideoId));
+            mockGetVideo.mockResolvedValue(undefined);
+            const result = await refreshStaleVideos(NOW);
+            const after: any = await StreamingVideoModel.findById(
+                gone._id,
+            ).lean();
+            expect(after.status).toBe("error");
+            expect(result.missing).toBe(1);
+        });
+
+        it("stops confirming once the misconfiguration guard trips", async () => {
+            await addProvider();
+            for (let i = 0; i < 10; i++) {
+                await addVideo({ status: "ready", createdAt: longAgo() });
+            }
+            mockListVideos.mockResolvedValue(listing("other"));
+            mockGetVideo.mockResolvedValue(null);
+            const result = await refreshStaleVideos(NOW);
+            // 6 missing of 11 ready (with the imported "other") trips it.
+            expect(mockGetVideo).toHaveBeenCalledTimes(6);
+            expect(result.missing).toBe(0);
+        });
+
+        it("bumps the check time of a not-found video whose re-read fails", async () => {
+            await addProvider();
+            const v = await addVideo({
+                status: "error",
+                errorMessage: "Video not found at provider",
+                lastCheckedAt: new Date(NOW.getTime() - 2 * HOUR),
+            });
+            mockGetVideo.mockRejectedValue(new Error("provider down"));
+            const result = await refreshStaleVideos(NOW);
+            const after: any = await StreamingVideoModel.findById(v._id).lean();
+            expect(after.status).toBe("error");
+            expect(after.errorMessage).toBe("Video not found at provider");
+            expect(after.lastCheckedAt).toEqual(NOW);
+            expect(result.failed).toBe(1);
+        });
+
         it("does not flag a candidate the provider still has", async () => {
             await addProvider();
             const skipped = await addVideo({

@@ -78,7 +78,10 @@ export interface VideoProviderConnector {
         groupId?: string;
         filetype: string;
     }): Promise<{ providerVideoId: string; upload: UploadInstructions }>;
-    /** null = not found at provider */
+    /**
+     * null = not found at provider. Callers treat null and undefined alike
+     * as not found; any other failure must throw.
+     */
     getVideo(providerVideoId: string): Promise<ProviderVideo | null>;
     /**
      * Lists every video the provider hosts for this configuration (e.g. the

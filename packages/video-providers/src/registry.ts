@@ -52,12 +52,13 @@ function optionalDetails(
 /**
  * Pure: the fields to `$set` on a StreamingVideo after reading it from the
  * provider. `readyAt` is only set when the video becomes ready. A stored
- * ready video keeps its status unless the provider no longer has it.
+ * ready video keeps its status unless the provider no longer has it. A
+ * null or undefined `providerVideo` means not found at the provider.
  */
 export function applyProviderVideo(
     current: Pick<StreamingVideo, "status" | "readyAt"> &
         Partial<Pick<StreamingVideo, "createdAt">>,
-    providerVideo: ProviderVideo | null,
+    providerVideo: ProviderVideo | null | undefined,
     now: Date,
 ): Partial<StreamingVideo> {
     if (!providerVideo) {

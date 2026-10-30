@@ -121,6 +121,11 @@ async function recheckMissingVideos(
             logger.error(
                 `refresh-stale-videos: provider ${provider.providerId} video ${video.videoId}: ${errorMessage(err)}`,
             );
+            // Retried in an hour, so failing rows do not starve the others.
+            await StreamingVideoModel.updateOne(
+                { _id: video._id, ...filter },
+                { $set: { lastCheckedAt: now } },
+            );
         }
     }
 }
@@ -217,12 +222,24 @@ async function markVideosMissingAtProvider(
         }),
     );
     const confirmed: any[] = [];
+    const misconfigured = () =>
+        isLikelyMisconfiguration({
+            missing: confirmed.length,
+            ready: stored.length,
+            listed: listing.providerVideoIds.size,
+        });
     for (const video of stored) {
+        // The confirmed count only grows: once the guard trips, stop
+        // spending provider calls.
+        if (misconfigured()) {
+            break;
+        }
         if (!candidates.has(video.videoId)) {
             continue;
         }
         try {
-            if ((await connector.getVideo(video.providerVideoId)) === null) {
+            // Same not-found test as applyProviderVideo: null or undefined.
+            if (!(await connector.getVideo(video.providerVideoId))) {
                 confirmed.push(video);
             }
         } catch (err) {
@@ -235,15 +252,9 @@ async function markVideosMissingAtProvider(
     if (!confirmed.length) {
         return;
     }
-    if (
-        isLikelyMisconfiguration({
-            missing: confirmed.length,
-            ready: stored.length,
-            listed: listing.providerVideoIds.size,
-        })
-    ) {
+    if (misconfigured()) {
         logger.error(
-            `refresh-stale-videos: provider ${provider.providerId}: ${confirmed.length} of ${stored.length} ready videos not found at provider; flagging none (likely misconfiguration: the provider settings may point at another library)`,
+            `refresh-stale-videos: provider ${provider.providerId}: at least ${confirmed.length} of ${stored.length} ready videos not found at provider; flagging none (likely misconfiguration: the provider settings may point at another library)`,
         );
         return;
     }
