@@ -80,6 +80,13 @@ export interface VideoProviderConnector {
     }): Promise<{ providerVideoId: string; upload: UploadInstructions }>;
     /** null = not found at provider */
     getVideo(providerVideoId: string): Promise<ProviderVideo | null>;
+    /**
+     * Lists every video the provider hosts for this configuration (e.g. the
+     * whole library), one page at a time from page 1. `hasMore` must be
+     * false only on the last page: a complete listing is used to detect
+     * videos deleted at the provider, so a partial one must never claim to
+     * be the end.
+     */
     listVideos(input: {
         page: number;
     }): Promise<{ items: ProviderVideo[]; hasMore: boolean }>;
@@ -95,4 +102,22 @@ export interface VideoProviderConnector {
         thumbnailUrl: string,
         ttlSeconds: number,
     ): string;
+}
+
+/**
+ * Input of the provider-agnostic check for stored videos that a provider no
+ * longer lists (deleted at the provider).
+ */
+export interface MissingAtProviderCheck {
+    /** Stored videos of one provider. */
+    stored: Array<
+        Pick<StreamingVideo, "videoId" | "providerVideoId" | "status"> &
+            Partial<Pick<StreamingVideo, "createdAt" | "readyAt">>
+    >;
+    /** Every `providerVideoId` seen while listing the provider. */
+    providerVideoIds: ReadonlySet<string>;
+    /** True only when every page was read and the last one said no more. */
+    listingComplete: boolean;
+    /** When the first page was requested. */
+    listingStartedAt: Date;
 }

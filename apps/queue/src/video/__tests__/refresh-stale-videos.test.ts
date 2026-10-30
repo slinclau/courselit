@@ -90,6 +90,16 @@ describe("refreshStaleVideos", () => {
             status: "ready",
             durationSeconds: 42,
         });
+        mockListVideos.mockResolvedValue({
+            items: [
+                {
+                    providerVideoId: v.providerVideoId,
+                    title: "t",
+                    status: "ready",
+                },
+            ],
+            hasMore: false,
+        });
 
         const result = await refreshStaleVideos(NOW);
 
@@ -98,7 +108,12 @@ describe("refreshStaleVideos", () => {
         expect(after.durationSeconds).toBe(42);
         expect(after.readyAt).toEqual(NOW);
         expect(after.lastCheckedAt).toEqual(NOW);
-        expect(result).toEqual({ refreshed: 1, failed: 0, imported: 0 });
+        expect(result).toEqual({
+            refreshed: 1,
+            failed: 0,
+            imported: 0,
+            missing: 0,
+        });
         expect(mockGetConnector).toHaveBeenCalledWith(
             expect.objectContaining({
                 secrets: { apiKey: "SECRET-KEY" },
@@ -259,6 +274,16 @@ describe("refreshStaleVideos", () => {
             status: "ready",
             lastCheckedAt: new Date(NOW.getTime() - HOUR),
         });
+        mockListVideos.mockResolvedValue({
+            items: [
+                {
+                    providerVideoId: ready.providerVideoId,
+                    title: "t",
+                    status: "ready",
+                },
+            ],
+            hasMore: false,
+        });
         const result = await refreshStaleVideos(NOW);
         expect(mockGetVideo).not.toHaveBeenCalled();
         expect(result.refreshed).toBe(0);
@@ -282,7 +307,16 @@ describe("refreshStaleVideos", () => {
                 }
                 return { providerVideoId: id, title: "t", status: "ready" };
             },
-            listVideos: mockListVideos,
+            listVideos: async () => ({
+                items: [
+                    {
+                        providerVideoId: v2.providerVideoId,
+                        title: "t",
+                        status: "ready",
+                    },
+                ],
+                hasMore: false,
+            }),
         }));
 
         const result = await refreshStaleVideos(NOW);
@@ -311,5 +345,113 @@ describe("refreshStaleVideos", () => {
         const result = await refreshStaleVideos(NOW);
         expect(result.failed).toBe(1);
         expect(result.imported).toBe(1);
+    });
+
+    describe("videos deleted at the provider", () => {
+        const listing = (...ids: string[]) => ({
+            items: ids.map((id) => ({
+                providerVideoId: id,
+                title: id,
+                status: "ready",
+            })),
+            hasMore: false,
+        });
+
+        it("marks a ready video missing from a complete listing as error, without deleting it", async () => {
+            await addProvider();
+            const gone = await addVideo({
+                status: "ready",
+                readyAt: new Date(NOW.getTime() - HOUR),
+                lastCheckedAt: new Date(NOW.getTime() - HOUR),
+            });
+            const kept = await addVideo({ status: "ready" });
+            mockListVideos.mockResolvedValue(listing(kept.providerVideoId));
+
+            const result = await refreshStaleVideos(NOW);
+
+            const a: any = await StreamingVideoModel.findById(gone._id).lean();
+            expect(a.status).toBe("error");
+            expect(a.errorMessage).toBe("Video not found at provider");
+            expect(a.lastCheckedAt).toEqual(NOW);
+            const b: any = await StreamingVideoModel.findById(kept._id).lean();
+            expect(b.status).toBe("ready");
+            expect(result.missing).toBe(1);
+            expect(await StreamingVideoModel.countDocuments({})).toBe(2);
+        });
+
+        it("checks across all pages", async () => {
+            await addProvider();
+            const onPage2 = await addVideo({ status: "ready" });
+            mockListVideos
+                .mockResolvedValueOnce({ ...listing("other"), hasMore: true })
+                .mockResolvedValueOnce(listing(onPage2.providerVideoId));
+            await refreshStaleVideos(NOW);
+            const after: any = await StreamingVideoModel.findById(
+                onPage2._id,
+            ).lean();
+            expect(after.status).toBe("ready");
+        });
+
+        it("marks nothing when a page fails", async () => {
+            await addProvider();
+            const v = await addVideo({ status: "ready" });
+            mockListVideos
+                .mockResolvedValueOnce({ ...listing("other"), hasMore: true })
+                .mockRejectedValueOnce(new Error("page 2 down"));
+            const result = await refreshStaleVideos(NOW);
+            const after: any = await StreamingVideoModel.findById(v._id).lean();
+            expect(after.status).toBe("ready");
+            expect(result.failed).toBe(1);
+        });
+
+        it("marks nothing when the listing is truncated by the page cap", async () => {
+            await addProvider();
+            const v = await addVideo({ status: "ready" });
+            mockListVideos.mockResolvedValue({
+                ...listing("other"),
+                hasMore: true,
+            });
+            const result = await refreshStaleVideos(NOW);
+            expect(mockListVideos).toHaveBeenCalledTimes(1000);
+            const after: any = await StreamingVideoModel.findById(v._id).lean();
+            expect(after.status).toBe("ready");
+            expect(result.missing).toBe(0);
+        });
+
+        it("only looks at ready videos of the listed provider", async () => {
+            await addProvider("p1");
+            const processing = await addVideo({
+                status: "processing",
+                lastCheckedAt: NOW,
+            });
+            const otherProvider = await addVideo({
+                providerId: "p2",
+                status: "ready",
+            });
+            const otherDomain = await addVideo({
+                domain: new mongoose.Types.ObjectId(),
+                status: "ready",
+            });
+            mockListVideos.mockResolvedValue(listing());
+            await refreshStaleVideos(NOW);
+            for (const v of [processing, otherProvider, otherDomain]) {
+                const after: any = await StreamingVideoModel.findById(
+                    v._id,
+                ).lean();
+                expect(after.status).toBe(v.status);
+            }
+        });
+
+        it("does not flag a video created after the listing started", async () => {
+            await addProvider();
+            const v = await addVideo({
+                status: "ready",
+                createdAt: new Date(Date.now() + HOUR),
+            });
+            mockListVideos.mockResolvedValue(listing());
+            await refreshStaleVideos(NOW);
+            const after: any = await StreamingVideoModel.findById(v._id).lean();
+            expect(after.status).toBe("ready");
+        });
     });
 });

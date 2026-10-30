@@ -1,4 +1,8 @@
-import { applyProviderVideo, getConnector } from "@courselit/video-providers";
+import {
+    applyProviderVideo,
+    findVideosMissingAtProvider,
+    getConnector,
+} from "@courselit/video-providers";
 import { generateUniqueId } from "@courselit/utils";
 import type { ProviderVideo } from "@courselit/common-models";
 import StreamingVideoModel from "../domain/model/streaming-video";
@@ -13,6 +17,7 @@ interface Result {
     refreshed: number;
     failed: number;
     imported: number;
+    missing: number;
 }
 
 function errorMessage(err: unknown): string {
@@ -58,15 +63,22 @@ async function refreshProviderVideos(
     }
 }
 
+/**
+ * Pages through the provider listing and imports videos we do not know.
+ * Returns every listed id, and whether the listing reached its last page
+ * (not cut off by the page cap). A failing page throws.
+ */
 async function importUnknownVideos(
     provider: LoadedProvider,
     connector: ReturnType<typeof getConnector>,
     now: Date,
     result: Result,
-) {
+): Promise<{ providerVideoIds: Set<string>; complete: boolean }> {
+    const providerVideoIds = new Set<string>();
     for (let page = 1; page <= MAX_LIST_PAGES; page++) {
         const { items, hasMore } = await connector.listVideos({ page });
         for (const item of items as ProviderVideo[]) {
+            providerVideoIds.add(item.providerVideoId);
             // Possibly a live upload whose record is not stored yet; it is
             // imported on a later run once it moved on.
             if (item.status === "uploading") {
@@ -98,25 +110,91 @@ async function importUnknownVideos(
             }
         }
         if (!hasMore) {
-            break;
+            return { providerVideoIds, complete: true };
         }
     }
+    return { providerVideoIds, complete: false };
+}
+
+/**
+ * Marks ready videos that a complete provider listing no longer contains
+ * (deleted at the provider) as errors. Never deletes anything.
+ */
+async function markVideosMissingAtProvider(
+    provider: LoadedProvider,
+    listing: { providerVideoIds: Set<string>; complete: boolean },
+    listingStartedAt: Date,
+    now: Date,
+    result: Result,
+) {
+    if (!listing.complete) {
+        return;
+    }
+    const filter = {
+        domain: provider.domain,
+        providerId: provider.providerId,
+        status: "ready",
+    };
+    const stored = await StreamingVideoModel.find(filter, {
+        videoId: 1,
+        providerVideoId: 1,
+        status: 1,
+        createdAt: 1,
+        readyAt: 1,
+    }).lean();
+    const missing = findVideosMissingAtProvider({
+        stored: stored as any[],
+        providerVideoIds: listing.providerVideoIds,
+        listingComplete: listing.complete,
+        listingStartedAt,
+    });
+    if (!missing.length) {
+        return;
+    }
+    const res = await StreamingVideoModel.updateMany(
+        { ...filter, videoId: { $in: missing } },
+        { $set: applyProviderVideo({ status: "ready" }, null, now) },
+    );
+    result.missing += res.modifiedCount;
+    logger.info(
+        `refresh-stale-videos: provider ${provider.providerId}: ${res.modifiedCount} video(s) not found at provider`,
+    );
 }
 
 /**
  * Safety net for missed webhooks: re-reads stale in-flight videos from their
- * hosting provider and imports provider videos we do not know about. Never
- * deletes anything, in the database or at a provider.
+ * hosting provider, imports provider videos we do not know about and marks
+ * ready videos the provider no longer lists as errors. Never deletes
+ * anything, in the database or at a provider.
  */
 export async function refreshStaleVideos(now: Date): Promise<Result> {
-    const result: Result = { refreshed: 0, failed: 0, imported: 0 };
+    const result: Result = {
+        refreshed: 0,
+        failed: 0,
+        imported: 0,
+        missing: 0,
+    };
     const providers = await loadAllProviders();
 
     for (const provider of providers) {
         try {
             const connector = getConnector(provider.config);
             await refreshProviderVideos(provider, connector, now, result);
-            await importUnknownVideos(provider, connector, now, result);
+            // Real clock: compared with the stored createdAt timestamps.
+            const listingStartedAt = new Date();
+            const listing = await importUnknownVideos(
+                provider,
+                connector,
+                now,
+                result,
+            );
+            await markVideosMissingAtProvider(
+                provider,
+                listing,
+                listingStartedAt,
+                now,
+                result,
+            );
         } catch (err) {
             result.failed++;
             logger.error(

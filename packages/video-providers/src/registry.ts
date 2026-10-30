@@ -1,4 +1,5 @@
 import type {
+    MissingAtProviderCheck,
     ProviderConfig,
     ProviderVideo,
     StreamingVideo,
@@ -28,6 +29,9 @@ export function getConnector(config: ProviderConfig): VideoProviderConnector {
     }
 }
 
+/** Error stored on a video the provider no longer has. */
+export const VIDEO_NOT_FOUND_AT_PROVIDER = "Video not found at provider";
+
 /** An upload the provider still has not received after this is an error. */
 const UPLOAD_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 
@@ -44,7 +48,7 @@ export function applyProviderVideo(
     if (!providerVideo) {
         return {
             status: "error",
-            errorMessage: "Video not found at provider",
+            errorMessage: VIDEO_NOT_FOUND_AT_PROVIDER,
             lastCheckedAt: now,
         };
     }
@@ -85,4 +89,36 @@ export function applyProviderVideo(
         update.errorMessage = "Video processing failed at provider";
     }
     return update;
+}
+
+/**
+ * Pure: the `videoId`s of stored videos that a provider listing shows were
+ * deleted at the provider. Flags nothing unless the listing is complete.
+ * Only `ready` videos are considered, and only when created and ready
+ * before the listing started, so a video that appears meanwhile is never
+ * flagged; in-flight videos are left to the per-video refresh.
+ */
+export function findVideosMissingAtProvider({
+    stored,
+    providerVideoIds,
+    listingComplete,
+    listingStartedAt,
+}: MissingAtProviderCheck): string[] {
+    if (!listingComplete) {
+        return [];
+    }
+    const start = listingStartedAt.getTime();
+    const before = (date?: Date) =>
+        date !== undefined && date !== null && new Date(date).getTime() < start;
+    return stored
+        .filter(
+            (video) =>
+                video.status === "ready" &&
+                before(video.createdAt) &&
+                (video.readyAt === undefined ||
+                    video.readyAt === null ||
+                    before(video.readyAt)) &&
+                !providerVideoIds.has(video.providerVideoId),
+        )
+        .map((video) => video.videoId);
 }

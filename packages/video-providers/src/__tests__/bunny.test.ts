@@ -1,7 +1,9 @@
 import { createHash, createHmac } from "crypto";
 import {
     applyProviderVideo,
+    findVideosMissingAtProvider,
     getConnector,
+    VIDEO_NOT_FOUND_AT_PROVIDER,
     SECRET_FIELDS,
     SETTING_FIELDS,
 } from "../index";
@@ -441,10 +443,11 @@ describe("applyProviderVideo", () => {
         expect(applyProviderVideo({ status: "processing" }, null, now)).toEqual(
             {
                 status: "error",
-                errorMessage: "Video not found at provider",
+                errorMessage: VIDEO_NOT_FOUND_AT_PROVIDER,
                 lastCheckedAt: now,
             },
         );
+        expect(VIDEO_NOT_FOUND_AT_PROVIDER).toBe("Video not found at provider");
     });
     test("provider error status", () => {
         const r = applyProviderVideo(
@@ -454,5 +457,73 @@ describe("applyProviderVideo", () => {
         );
         expect(r.status).toBe("error");
         expect(r.errorMessage).toBeTruthy();
+    });
+});
+
+describe("findVideosMissingAtProvider", () => {
+    const startedAt = new Date("2026-05-01T12:00:00Z");
+    const before = new Date("2026-05-01T11:00:00Z");
+    const after = new Date("2026-05-01T12:00:01Z");
+    const video = (overrides: Record<string, any> = {}) => ({
+        videoId: "v1",
+        providerVideoId: "pv1",
+        status: "ready" as const,
+        createdAt: before,
+        readyAt: before,
+        ...overrides,
+    });
+
+    test("flags a ready video absent from a complete listing", () => {
+        expect(
+            findVideosMissingAtProvider({
+                stored: [
+                    video(),
+                    video({ videoId: "v2", providerVideoId: "pv2" }),
+                ],
+                providerVideoIds: new Set(["pv2"]),
+                listingComplete: true,
+                listingStartedAt: startedAt,
+            }),
+        ).toEqual(["v1"]);
+    });
+
+    test("flags nothing when the listing is incomplete", () => {
+        expect(
+            findVideosMissingAtProvider({
+                stored: [video()],
+                providerVideoIds: new Set(),
+                listingComplete: false,
+                listingStartedAt: startedAt,
+            }),
+        ).toEqual([]);
+    });
+
+    test.each(["uploading", "processing", "error"] as const)(
+        "leaves a %s video to the per-video refresh",
+        (status) => {
+            expect(
+                findVideosMissingAtProvider({
+                    stored: [video({ status })],
+                    providerVideoIds: new Set(),
+                    listingComplete: true,
+                    listingStartedAt: startedAt,
+                }),
+            ).toEqual([]);
+        },
+    );
+
+    test("ignores videos created or ready after the listing started", () => {
+        expect(
+            findVideosMissingAtProvider({
+                stored: [
+                    video({ videoId: "late-create", createdAt: after }),
+                    video({ videoId: "late-ready", readyAt: after }),
+                    video({ videoId: "no-dates", createdAt: undefined }),
+                ],
+                providerVideoIds: new Set(),
+                listingComplete: true,
+                listingStartedAt: startedAt,
+            }),
+        ).toEqual([]);
     });
 });
