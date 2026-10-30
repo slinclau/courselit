@@ -83,9 +83,10 @@ export interface VideoProviderConnector {
     /**
      * Lists every video the provider hosts for this configuration (e.g. the
      * whole library), one page at a time from page 1. `hasMore` must be
-     * false only on the last page: a complete listing is used to detect
-     * videos deleted at the provider, so a partial one must never claim to
-     * be the end.
+     * false only on the last page, and a malformed response must throw.
+     * Stored ready videos absent from a complete listing are only candidates
+     * for deletion at the provider; each is confirmed with `getVideo` before
+     * being flagged, so the pages need not form a consistent snapshot.
      */
     listVideos(input: {
         page: number;
@@ -120,4 +121,14 @@ export interface MissingAtProviderCheck {
     listingComplete: boolean;
     /** When the first page was requested. */
     listingStartedAt: Date;
+}
+
+/** Counts for one provider, used to refuse flagging on a likely misconfiguration. */
+export interface MissingAtProviderCounts {
+    /** Ready videos confirmed missing at the provider. */
+    missing: number;
+    /** Stored ready videos of the provider. */
+    ready: number;
+    /** Videos in the provider listing. */
+    listed: number;
 }

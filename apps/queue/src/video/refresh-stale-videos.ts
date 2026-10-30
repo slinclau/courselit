@@ -2,6 +2,8 @@ import {
     applyProviderVideo,
     findVideosMissingAtProvider,
     getConnector,
+    isLikelyMisconfiguration,
+    VIDEO_NOT_FOUND_AT_PROVIDER,
 } from "@courselit/video-providers";
 import { generateUniqueId } from "@courselit/utils";
 import type { ProviderVideo } from "@courselit/common-models";
@@ -12,6 +14,9 @@ import { loadAllProviders, LoadedProvider } from "./load-providers";
 const STALE_AFTER_MS = 5 * 60 * 1000;
 const MAX_LIST_PAGES = 1000;
 const IMPORTED_BY = "system";
+/** Not-found videos are re-read at most this often, this many per run. */
+const MISSING_RECHECK_AFTER_MS = 60 * 60 * 1000;
+const MAX_MISSING_RECHECKS = 50;
 
 interface Result {
     refreshed: number;
@@ -54,6 +59,63 @@ async function refreshProviderVideos(
                 { $set: update },
             );
             result.refreshed++;
+        } catch (err) {
+            result.failed++;
+            logger.error(
+                `refresh-stale-videos: provider ${provider.providerId} video ${video.videoId}: ${errorMessage(err)}`,
+            );
+        }
+    }
+}
+
+/**
+ * Re-reads videos marked as not found at the provider, a bounded number per
+ * run, so they recover when the provider has them again (e.g. after the
+ * provider settings were fixed).
+ */
+async function recheckMissingVideos(
+    provider: LoadedProvider,
+    connector: ReturnType<typeof getConnector>,
+    now: Date,
+    result: Result,
+) {
+    const filter = {
+        domain: provider.domain,
+        providerId: provider.providerId,
+        status: "error",
+        errorMessage: VIDEO_NOT_FOUND_AT_PROVIDER,
+    };
+    const checkedBefore = new Date(now.getTime() - MISSING_RECHECK_AFTER_MS);
+    const videos = await StreamingVideoModel.find({
+        ...filter,
+        $or: [
+            { lastCheckedAt: { $exists: false } },
+            { lastCheckedAt: null },
+            { lastCheckedAt: { $lt: checkedBefore } },
+        ],
+    })
+        .sort({ lastCheckedAt: 1 })
+        .limit(MAX_MISSING_RECHECKS)
+        .lean();
+
+    for (const video of videos as any[]) {
+        try {
+            const providerVideo = await connector.getVideo(
+                video.providerVideoId,
+            );
+            const update = applyProviderVideo(video, providerVideo, now);
+            await StreamingVideoModel.updateOne(
+                { _id: video._id, ...filter },
+                {
+                    $set: update,
+                    ...(update.status !== "error"
+                        ? { $unset: { errorMessage: 1 } }
+                        : {}),
+                },
+            );
+            if (providerVideo) {
+                result.refreshed++;
+            }
         } catch (err) {
             result.failed++;
             logger.error(
@@ -118,10 +180,14 @@ async function importUnknownVideos(
 
 /**
  * Marks ready videos that a complete provider listing no longer contains
- * (deleted at the provider) as errors. Never deletes anything.
+ * (deleted at the provider) as errors. The listing only nominates
+ * candidates: each is confirmed with `getVideo`, and nothing is flagged when
+ * so many are missing that the provider settings are likely wrong. Never
+ * deletes anything.
  */
 async function markVideosMissingAtProvider(
     provider: LoadedProvider,
+    connector: ReturnType<typeof getConnector>,
     listing: { providerVideoIds: Set<string>; complete: boolean },
     listingStartedAt: Date,
     now: Date,
@@ -135,29 +201,68 @@ async function markVideosMissingAtProvider(
         providerId: provider.providerId,
         status: "ready",
     };
-    const stored = await StreamingVideoModel.find(filter, {
+    const stored = (await StreamingVideoModel.find(filter, {
         videoId: 1,
         providerVideoId: 1,
         status: 1,
         createdAt: 1,
         readyAt: 1,
-    }).lean();
-    const missing = findVideosMissingAtProvider({
-        stored: stored as any[],
-        providerVideoIds: listing.providerVideoIds,
-        listingComplete: listing.complete,
-        listingStartedAt,
-    });
-    if (!missing.length) {
+    }).lean()) as any[];
+    const candidates = new Set(
+        findVideosMissingAtProvider({
+            stored,
+            providerVideoIds: listing.providerVideoIds,
+            listingComplete: listing.complete,
+            listingStartedAt,
+        }),
+    );
+    const confirmed: any[] = [];
+    for (const video of stored) {
+        if (!candidates.has(video.videoId)) {
+            continue;
+        }
+        try {
+            if ((await connector.getVideo(video.providerVideoId)) === null) {
+                confirmed.push(video);
+            }
+        } catch (err) {
+            result.failed++;
+            logger.error(
+                `refresh-stale-videos: provider ${provider.providerId} video ${video.videoId}: ${errorMessage(err)}`,
+            );
+        }
+    }
+    if (!confirmed.length) {
         return;
     }
-    const res = await StreamingVideoModel.updateMany(
-        { ...filter, videoId: { $in: missing } },
-        { $set: applyProviderVideo({ status: "ready" }, null, now) },
-    );
-    result.missing += res.modifiedCount;
+    if (
+        isLikelyMisconfiguration({
+            missing: confirmed.length,
+            ready: stored.length,
+            listed: listing.providerVideoIds.size,
+        })
+    ) {
+        logger.error(
+            `refresh-stale-videos: provider ${provider.providerId}: ${confirmed.length} of ${stored.length} ready videos not found at provider; flagging none (likely misconfiguration: the provider settings may point at another library)`,
+        );
+        return;
+    }
+    const update = applyProviderVideo({ status: "ready" }, null, now);
+    let flagged = 0;
+    for (const video of confirmed) {
+        const res = await StreamingVideoModel.updateOne(
+            {
+                ...filter,
+                videoId: video.videoId,
+                providerVideoId: video.providerVideoId,
+            },
+            { $set: update },
+        );
+        flagged += res.modifiedCount;
+    }
+    result.missing += flagged;
     logger.info(
-        `refresh-stale-videos: provider ${provider.providerId}: ${res.modifiedCount} video(s) not found at provider`,
+        `refresh-stale-videos: provider ${provider.providerId}: ${flagged} video(s) not found at provider`,
     );
 }
 
@@ -180,6 +285,7 @@ export async function refreshStaleVideos(now: Date): Promise<Result> {
         try {
             const connector = getConnector(provider.config);
             await refreshProviderVideos(provider, connector, now, result);
+            await recheckMissingVideos(provider, connector, now, result);
             // Real clock: compared with the stored createdAt timestamps.
             const listingStartedAt = new Date();
             const listing = await importUnknownVideos(
@@ -190,6 +296,7 @@ export async function refreshStaleVideos(now: Date): Promise<Result> {
             );
             await markVideosMissingAtProvider(
                 provider,
+                connector,
                 listing,
                 listingStartedAt,
                 now,

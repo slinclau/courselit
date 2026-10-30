@@ -225,10 +225,16 @@ export function createBunnyConnector(
             const data: BunnyList<BunnyVideo> = await request(
                 `/library/${lib}/videos?page=${page}&itemsPerPage=${ITEMS_PER_PAGE}&orderBy=date`,
             );
-            const items = (data.items || []).map(toProviderVideo);
+            if (
+                !Array.isArray(data?.items) ||
+                typeof data.totalItems !== "number"
+            ) {
+                throw new Error("Bunny returned a malformed video list");
+            }
+            const items = data.items.map(toProviderVideo);
             return {
                 items,
-                hasMore: page * ITEMS_PER_PAGE < (data.totalItems ?? 0),
+                hasMore: page * ITEMS_PER_PAGE < data.totalItems,
             };
         },
 

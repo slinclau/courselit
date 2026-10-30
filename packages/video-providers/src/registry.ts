@@ -1,5 +1,6 @@
 import type {
     MissingAtProviderCheck,
+    MissingAtProviderCounts,
     ProviderConfig,
     ProviderVideo,
     StreamingVideo,
@@ -35,9 +36,23 @@ export const VIDEO_NOT_FOUND_AT_PROVIDER = "Video not found at provider";
 /** An upload the provider still has not received after this is an error. */
 const UPLOAD_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 
+function optionalDetails(
+    providerVideo: ProviderVideo,
+): Partial<StreamingVideo> {
+    const details: Partial<StreamingVideo> = {};
+    if (providerVideo.durationSeconds !== undefined) {
+        details.durationSeconds = providerVideo.durationSeconds;
+    }
+    if (providerVideo.thumbnailUrl !== undefined) {
+        details.thumbnailUrl = providerVideo.thumbnailUrl;
+    }
+    return details;
+}
+
 /**
  * Pure: the fields to `$set` on a StreamingVideo after reading it from the
- * provider. `readyAt` is only set when the video becomes ready.
+ * provider. `readyAt` is only set when the video becomes ready. A stored
+ * ready video keeps its status unless the provider no longer has it.
  */
 export function applyProviderVideo(
     current: Pick<StreamingVideo, "status" | "readyAt"> &
@@ -50,6 +65,14 @@ export function applyProviderVideo(
             status: "error",
             errorMessage: VIDEO_NOT_FOUND_AT_PROVIDER,
             lastCheckedAt: now,
+        };
+    }
+    if (current.status === "ready") {
+        // A ready video stays ready: only its absence at the provider
+        // (above) changes its status.
+        return {
+            lastCheckedAt: now,
+            ...optionalDetails(providerVideo),
         };
     }
     if (
@@ -76,12 +99,7 @@ export function applyProviderVideo(
     ) {
         delete update.status;
     }
-    if (providerVideo.durationSeconds !== undefined) {
-        update.durationSeconds = providerVideo.durationSeconds;
-    }
-    if (providerVideo.thumbnailUrl !== undefined) {
-        update.thumbnailUrl = providerVideo.thumbnailUrl;
-    }
+    Object.assign(update, optionalDetails(providerVideo));
     if (providerVideo.status === "ready" && !current.readyAt) {
         update.readyAt = now;
     }
@@ -91,12 +109,17 @@ export function applyProviderVideo(
     return update;
 }
 
+/** Margin before the listing start for videos that may not be listed yet. */
+const LISTING_START_MARGIN_MS = 5 * 60 * 1000;
+
 /**
- * Pure: the `videoId`s of stored videos that a provider listing shows were
- * deleted at the provider. Flags nothing unless the listing is complete.
- * Only `ready` videos are considered, and only when created and ready
- * before the listing started, so a video that appears meanwhile is never
- * flagged; in-flight videos are left to the per-video refresh.
+ * Pure: the `videoId`s of stored videos that a provider listing suggests
+ * were deleted at the provider. These are only candidates: confirm each one
+ * with `getVideo` (null) before flagging it, since a listing paged while the
+ * library changes can skip videos. Nominates nothing unless the listing is
+ * complete. Only `ready` videos are considered, and only when created, and
+ * ready if `readyAt` is known, more than 5 minutes before the listing
+ * started; in-flight videos are left to the per-video refresh.
  */
 export function findVideosMissingAtProvider({
     stored,
@@ -107,7 +130,7 @@ export function findVideosMissingAtProvider({
     if (!listingComplete) {
         return [];
     }
-    const start = listingStartedAt.getTime();
+    const start = listingStartedAt.getTime() - LISTING_START_MARGIN_MS;
     const before = (date?: Date) =>
         date !== undefined && date !== null && new Date(date).getTime() < start;
     return stored
@@ -121,4 +144,21 @@ export function findVideosMissingAtProvider({
                 !providerVideoIds.has(video.providerVideoId),
         )
         .map((video) => video.videoId);
+}
+
+/**
+ * Pure: whether flagging this many ready videos as missing at once more
+ * likely means the provider settings point at another library than that
+ * the videos were deleted. True when more than 5 videos and more than 20 %
+ * of the ready ones are missing, or when the listing is empty and more than
+ * one ready video is missing.
+ */
+export function isLikelyMisconfiguration({
+    missing,
+    ready,
+    listed,
+}: MissingAtProviderCounts): boolean {
+    return (
+        (missing > 5 && missing * 5 > ready) || (listed === 0 && missing > 1)
+    );
 }

@@ -78,6 +78,7 @@ export * from "./product-discussion";
 export type { ScormContent } from "./scorm-content";
 export type {
     MissingAtProviderCheck,
+    MissingAtProviderCounts,
     ProviderConfig,
     ProviderVideo,
     Playback,

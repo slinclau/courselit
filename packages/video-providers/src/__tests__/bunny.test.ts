@@ -3,6 +3,7 @@ import {
     applyProviderVideo,
     findVideosMissingAtProvider,
     getConnector,
+    isLikelyMisconfiguration,
     VIDEO_NOT_FOUND_AT_PROVIDER,
     SECRET_FIELDS,
     SETTING_FIELDS,
@@ -93,6 +94,18 @@ describe("bunny getVideo / listVideos", () => {
         expect(err).toBeInstanceOf(Error);
         expect(err.message).toContain("500");
         expect(err.message).not.toContain("key");
+    });
+
+    test.each([
+        ["items missing", { totalItems: 1 }],
+        ["items not an array", { totalItems: 1, items: "x" }],
+        ["totalItems missing", { items: [] }],
+        ["totalItems not a number", { totalItems: "3", items: [] }],
+    ])("listVideos throws on a malformed body (%s)", async (_, body) => {
+        fetchMock.mockResolvedValueOnce(json(body));
+        await expect(
+            getConnector(config).listVideos({ page: 1 }),
+        ).rejects.toThrow();
     });
 
     test("listVideos paginates", async () => {
@@ -449,6 +462,38 @@ describe("applyProviderVideo", () => {
         );
         expect(VIDEO_NOT_FOUND_AT_PROVIDER).toBe("Video not found at provider");
     });
+    test.each(["ready", "processing", "uploading", "error"] as const)(
+        "a ready video stays ready when the provider reports %s",
+        (status) => {
+            const r = applyProviderVideo(
+                {
+                    status: "ready",
+                    readyAt: new Date(1),
+                    createdAt: new Date(now.getTime() - 48 * 3600 * 1000),
+                },
+                {
+                    providerVideoId: "g",
+                    title: "t",
+                    status,
+                    durationSeconds: 5,
+                    thumbnailUrl: "u",
+                },
+                now,
+            );
+            expect(r).toEqual({
+                lastCheckedAt: now,
+                durationSeconds: 5,
+                thumbnailUrl: "u",
+            });
+        },
+    );
+    test("a ready video missing at the provider -> error", () => {
+        expect(applyProviderVideo({ status: "ready" }, null, now)).toEqual({
+            status: "error",
+            errorMessage: VIDEO_NOT_FOUND_AT_PROVIDER,
+            lastCheckedAt: now,
+        });
+    });
     test("provider error status", () => {
         const r = applyProviderVideo(
             { status: "processing" },
@@ -512,6 +557,35 @@ describe("findVideosMissingAtProvider", () => {
         },
     );
 
+    test("keeps a 5 minute margin before the listing start", () => {
+        const minutesBefore = (n: number) =>
+            new Date(startedAt.getTime() - n * 60000);
+        expect(
+            findVideosMissingAtProvider({
+                stored: [
+                    video({
+                        videoId: "recent",
+                        createdAt: minutesBefore(4),
+                        readyAt: undefined,
+                    }),
+                    video({
+                        videoId: "recently-ready",
+                        readyAt: minutesBefore(4),
+                    }),
+                    // Without readyAt only createdAt counts.
+                    video({
+                        videoId: "old",
+                        createdAt: minutesBefore(6),
+                        readyAt: undefined,
+                    }),
+                ],
+                providerVideoIds: new Set(),
+                listingComplete: true,
+                listingStartedAt: startedAt,
+            }),
+        ).toEqual(["old"]);
+    });
+
     test("ignores videos created or ready after the listing started", () => {
         expect(
             findVideosMissingAtProvider({
@@ -526,4 +600,23 @@ describe("findVideosMissingAtProvider", () => {
             }),
         ).toEqual([]);
     });
+});
+
+describe("isLikelyMisconfiguration", () => {
+    test.each([
+        [0, 100, 50, false],
+        [5, 10, 5, false],
+        [6, 100, 94, false],
+        [6, 20, 14, true],
+        [1, 1, 0, false],
+        [2, 2, 0, true],
+        [2, 10, 8, false],
+    ])(
+        "%i missing of %i ready, %i listed -> %s",
+        (missing, ready, listed, expected) => {
+            expect(isLikelyMisconfiguration({ missing, ready, listed })).toBe(
+                expected,
+            );
+        },
+    );
 });

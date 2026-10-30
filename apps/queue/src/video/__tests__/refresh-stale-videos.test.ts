@@ -348,6 +348,8 @@ describe("refreshStaleVideos", () => {
     });
 
     describe("videos deleted at the provider", () => {
+        // Real clock: compared with the listing start.
+        const longAgo = () => new Date(Date.now() - 2 * HOUR);
         const listing = (...ids: string[]) => ({
             items: ids.map((id) => ({
                 providerVideoId: id,
@@ -361,11 +363,16 @@ describe("refreshStaleVideos", () => {
             await addProvider();
             const gone = await addVideo({
                 status: "ready",
+                createdAt: longAgo(),
                 readyAt: new Date(NOW.getTime() - HOUR),
                 lastCheckedAt: new Date(NOW.getTime() - HOUR),
             });
-            const kept = await addVideo({ status: "ready" });
+            const kept = await addVideo({
+                status: "ready",
+                createdAt: longAgo(),
+            });
             mockListVideos.mockResolvedValue(listing(kept.providerVideoId));
+            mockGetVideo.mockResolvedValue(null);
 
             const result = await refreshStaleVideos(NOW);
 
@@ -376,12 +383,145 @@ describe("refreshStaleVideos", () => {
             const b: any = await StreamingVideoModel.findById(kept._id).lean();
             expect(b.status).toBe("ready");
             expect(result.missing).toBe(1);
+            expect(mockGetVideo).toHaveBeenCalledWith(gone.providerVideoId);
             expect(await StreamingVideoModel.countDocuments({})).toBe(2);
+        });
+
+        it("does not flag a candidate the provider still has", async () => {
+            await addProvider();
+            const skipped = await addVideo({
+                status: "ready",
+                createdAt: longAgo(),
+            });
+            const kept = await addVideo({
+                status: "ready",
+                createdAt: longAgo(),
+            });
+            mockListVideos.mockResolvedValue(listing(kept.providerVideoId));
+            mockGetVideo.mockResolvedValue({
+                providerVideoId: skipped.providerVideoId,
+                title: "t",
+                status: "ready",
+            });
+            const result = await refreshStaleVideos(NOW);
+            const after: any = await StreamingVideoModel.findById(
+                skipped._id,
+            ).lean();
+            expect(after.status).toBe("ready");
+            expect(result.missing).toBe(0);
+        });
+
+        it("does not flag a candidate when the confirmation fails", async () => {
+            await addProvider();
+            const v = await addVideo({ status: "ready", createdAt: longAgo() });
+            mockListVideos.mockResolvedValue(listing("other"));
+            mockGetVideo.mockRejectedValue(new Error("provider down"));
+            const result = await refreshStaleVideos(NOW);
+            const after: any = await StreamingVideoModel.findById(v._id).lean();
+            expect(after.status).toBe("ready");
+            expect(result.missing).toBe(0);
+            expect(result.failed).toBe(1);
+        });
+
+        it.each([
+            ["most videos are missing", 7, ["other"]],
+            ["the listing is empty", 2, []],
+        ])(
+            "flags nothing and logs an error when %s",
+            async (_, count, listed) => {
+                await addProvider();
+                const videos = [];
+                for (let i = 0; i < count; i++) {
+                    videos.push(
+                        await addVideo({
+                            status: "ready",
+                            createdAt: longAgo(),
+                        }),
+                    );
+                }
+                mockListVideos.mockResolvedValue(listing(...listed));
+                mockGetVideo.mockResolvedValue(null);
+                const { logger } = jest.requireMock("../../logger");
+                logger.error.mockClear();
+
+                const result = await refreshStaleVideos(NOW);
+
+                for (const v of videos) {
+                    const after: any = await StreamingVideoModel.findById(
+                        v._id,
+                    ).lean();
+                    expect(after.status).toBe("ready");
+                }
+                expect(result.missing).toBe(0);
+                expect(JSON.stringify(logger.error.mock.calls)).toContain(
+                    "misconfigur",
+                );
+            },
+        );
+
+        it("brings back a not-found video the provider has again", async () => {
+            await addProvider();
+            const v = await addVideo({
+                status: "error",
+                errorMessage: "Video not found at provider",
+                lastCheckedAt: new Date(NOW.getTime() - 2 * HOUR),
+            });
+            mockListVideos.mockResolvedValue(listing(v.providerVideoId));
+            mockGetVideo.mockResolvedValue({
+                providerVideoId: v.providerVideoId,
+                title: "t",
+                status: "ready",
+                durationSeconds: 9,
+            });
+
+            await refreshStaleVideos(NOW);
+
+            const after: any = await StreamingVideoModel.findById(v._id).lean();
+            expect(after.status).toBe("ready");
+            expect(after.errorMessage).toBeUndefined();
+            expect(after.readyAt).toEqual(NOW);
+            expect(after.durationSeconds).toBe(9);
+        });
+
+        it("re-reads at most 50 not-found videos per run, oldest first, after an hour", async () => {
+            await addProvider();
+            for (let i = 0; i < 52; i++) {
+                await addVideo({
+                    providerVideoId: `old-${i}`,
+                    status: "error",
+                    errorMessage: "Video not found at provider",
+                    lastCheckedAt: new Date(NOW.getTime() - (100 - i) * HOUR),
+                });
+            }
+            await addVideo({
+                providerVideoId: "recent",
+                status: "error",
+                errorMessage: "Video not found at provider",
+                lastCheckedAt: new Date(NOW.getTime() - 10 * MIN),
+            });
+            await addVideo({
+                providerVideoId: "failed",
+                status: "error",
+                errorMessage: "Video processing failed at provider",
+            });
+            mockGetVideo.mockResolvedValue(null);
+
+            await refreshStaleVideos(NOW);
+
+            const ids = mockGetVideo.mock.calls.map((c) => c[0]);
+            expect(ids).toHaveLength(50);
+            expect(ids[0]).toBe("old-0");
+            expect(ids).not.toContain("old-50");
+            expect(ids).not.toContain("recent");
+            expect(ids).not.toContain("failed");
         });
 
         it("checks across all pages", async () => {
             await addProvider();
-            const onPage2 = await addVideo({ status: "ready" });
+            const onPage2 = await addVideo({
+                status: "ready",
+                createdAt: longAgo(),
+            });
             mockListVideos
                 .mockResolvedValueOnce({ ...listing("other"), hasMore: true })
                 .mockResolvedValueOnce(listing(onPage2.providerVideoId));
@@ -394,7 +534,7 @@ describe("refreshStaleVideos", () => {
 
         it("marks nothing when a page fails", async () => {
             await addProvider();
-            const v = await addVideo({ status: "ready" });
+            const v = await addVideo({ status: "ready", createdAt: longAgo() });
             mockListVideos
                 .mockResolvedValueOnce({ ...listing("other"), hasMore: true })
                 .mockRejectedValueOnce(new Error("page 2 down"));
@@ -406,7 +546,7 @@ describe("refreshStaleVideos", () => {
 
         it("marks nothing when the listing is truncated by the page cap", async () => {
             await addProvider();
-            const v = await addVideo({ status: "ready" });
+            const v = await addVideo({ status: "ready", createdAt: longAgo() });
             mockListVideos.mockResolvedValue({
                 ...listing("other"),
                 hasMore: true,
@@ -427,10 +567,12 @@ describe("refreshStaleVideos", () => {
             const otherProvider = await addVideo({
                 providerId: "p2",
                 status: "ready",
+                createdAt: longAgo(),
             });
             const otherDomain = await addVideo({
                 domain: new mongoose.Types.ObjectId(),
                 status: "ready",
+                createdAt: longAgo(),
             });
             mockListVideos.mockResolvedValue(listing());
             await refreshStaleVideos(NOW);
