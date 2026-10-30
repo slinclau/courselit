@@ -145,9 +145,14 @@ export function StreamingVideoViewer({
             el.currentTime = resume.time;
             if (!resume.paused) el.play?.().catch(() => {});
         };
+        // The media failed (e.g. the video was deleted at the provider).
+        const handleError = () =>
+            setState({ kind: "pending", status: "error" });
         el.addEventListener("ended", handleEnded);
         el.addEventListener("loadedmetadata", handleLoaded);
+        el.addEventListener("error", handleError);
         return () => {
+            el.removeEventListener("error", handleError);
             el.removeEventListener("ended", handleEnded);
             el.removeEventListener("loadedmetadata", handleLoaded);
         };

@@ -202,6 +202,17 @@ describe("StreamingVideoUpload", () => {
         const img = await screen.findByRole("img");
         expect(img).toHaveAttribute("src", "https://cdn.example/thumb.jpg");
         expect(screen.getByText("2:05")).toBeInTheDocument();
+        // The preview is kept small in the editor.
+        expect(
+            img.closest("[data-testid='streaming-video-preview']"),
+        ).toHaveClass("max-w-md");
+        // A thumbnail that no longer loads (video deleted at the provider)
+        // turns into the unavailable placeholder.
+        fireEvent.error(img);
+        expect(screen.getByText("Video unavailable")).toHaveClass(
+            "text-destructive",
+        );
+        expect(screen.queryByRole("img")).toBeNull();
 
         const callsAfterReady = fetchMock.mock.calls.length;
         await act(async () => {

@@ -126,9 +126,7 @@ describe("StreamingVideoViewer", () => {
         });
         expect(fetchMock).toHaveBeenCalledTimes(2);
         expect(container.querySelector("hls-video")).not.toBeNull();
-        expect(
-            screen.queryByText("The video could not be processed"),
-        ).toBeNull();
+        expect(screen.queryByText("Video unavailable")).toBeNull();
 
         // Retry after 30 s: provider error, still playing.
         await act(async () => {
@@ -149,10 +147,26 @@ describe("StreamingVideoViewer", () => {
         expect(container.querySelector("hls-video")).not.toBeNull();
     });
 
+    it("shows the unavailable placeholder when the player fails", async () => {
+        global.fetch = jest.fn().mockReturnValue(respond(200, ready())) as any;
+        const { container } = render(<StreamingVideoViewer {...baseProps} />);
+        await waitFor(() =>
+            expect(container.querySelector("hls-video")).not.toBeNull(),
+        );
+        act(() => {
+            container
+                .querySelector("hls-video")!
+                .dispatchEvent(new Event("error"));
+        });
+        const text = await screen.findByText("Video unavailable");
+        expect(text.className).toContain("text-destructive");
+        expect(container.querySelector("hls-video")).toBeNull();
+    });
+
     it("shows the error placeholder when the first load fails", async () => {
         global.fetch = jest.fn().mockReturnValue(respond(502, {})) as any;
         const { container } = render(<StreamingVideoViewer {...baseProps} />);
-        await screen.findByText("The video could not be processed");
+        await screen.findByText("Video unavailable");
         expect(container.querySelector("hls-video")).toBeNull();
     });
 

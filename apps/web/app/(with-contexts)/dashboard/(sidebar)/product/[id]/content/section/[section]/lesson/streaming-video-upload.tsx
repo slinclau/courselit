@@ -265,7 +265,15 @@ export function StreamingVideoUpload({
                 </div>
             )}
             {!running && videoId && status && (
-                <VideoPlaceholder status={status} thumbnailUrl={thumbnailUrl} />
+                <div
+                    className="w-full max-w-md"
+                    data-testid="streaming-video-preview"
+                >
+                    <VideoPlaceholder
+                        status={status}
+                        thumbnailUrl={thumbnailUrl}
+                    />
+                </div>
             )}
             {!running && status === "ready" && !failure && (
                 <p className="text-sm text-muted-foreground">
