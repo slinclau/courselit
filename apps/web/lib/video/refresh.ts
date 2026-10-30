@@ -41,30 +41,37 @@ export async function refreshVideo(domainId: string, videoId: string) {
 }
 
 const STALE_AFTER_MS = 60 * 1000;
+/** A ready video is re-read now and then to notice deletion at the provider. */
+const READY_STALE_AFTER_MS = 60 * 60 * 1000;
 const PENDING = ["uploading", "processing"];
 
 /**
  * Refreshes a video that is still uploading or processing when it was last
- * checked more than a minute ago, so the editor does not depend on the queue
- * or a webhook. Concurrent callers race on `lastCheckedAt`: only the request
- * that claims the check calls the provider. Returns the freshest stored
- * record; provider failures are logged and the stored record is returned.
+ * checked more than a minute ago, or a ready one checked more than an hour
+ * ago (it may have been deleted at the provider), so the editor does not
+ * depend on the queue or a webhook. Concurrent callers race on
+ * `lastCheckedAt`: only the request that claims the check calls the
+ * provider. Returns the freshest stored record; provider failures are logged
+ * and the stored record is returned.
  */
 export async function refreshVideoIfStale<
     T extends { videoId: string; status: string; lastCheckedAt?: Date },
 >(domainId: string, video: T, now: Date = new Date()) {
-    const cutoff = new Date(now.getTime() - STALE_AFTER_MS);
-    if (
-        !PENDING.includes(video.status) ||
-        (video.lastCheckedAt && video.lastCheckedAt > cutoff)
-    ) {
+    const pending = PENDING.includes(video.status);
+    if (!pending && video.status !== "ready") {
+        return video;
+    }
+    const cutoff = new Date(
+        now.getTime() - (pending ? STALE_AFTER_MS : READY_STALE_AFTER_MS),
+    );
+    if (video.lastCheckedAt && video.lastCheckedAt > cutoff) {
         return video;
     }
     const claimed = await StreamingVideoModel.findOneAndUpdate(
         {
             domain: domainId,
             videoId: video.videoId,
-            status: { $in: PENDING },
+            status: pending ? { $in: PENDING } : "ready",
             $or: [
                 { lastCheckedAt: { $exists: false } },
                 { lastCheckedAt: { $lt: cutoff } },

@@ -412,15 +412,80 @@ describe("video status and uploaded", () => {
             expect((await res.json()).status).toBe("uploading");
         });
 
-        it("does not refresh a ready video", async () => {
+        it("does not refresh a ready video checked within the hour", async () => {
             (StreamingVideo.findOne as jest.Mock).mockResolvedValue({
                 ...video,
                 status: "ready",
-                lastCheckedAt: minutesAgo(60),
+                lastCheckedAt: minutesAgo(50),
             });
             await get();
             expect(connector.getVideo).not.toHaveBeenCalled();
             expect(StreamingVideo.findOneAndUpdate).not.toHaveBeenCalled();
+        });
+
+        it("re-reads a ready video last checked over an hour ago", async () => {
+            const stored = {
+                ...video,
+                status: "ready",
+                readyAt: minutesAgo(600),
+                lastCheckedAt: minutesAgo(61),
+            };
+            (StreamingVideo.findOne as jest.Mock).mockResolvedValue(stored);
+            (StreamingVideo.findOneAndUpdate as jest.Mock)
+                .mockResolvedValueOnce(stored)
+                .mockResolvedValueOnce({
+                    ...stored,
+                    status: "error",
+                    errorMessage: "Video not found at provider",
+                });
+            connector.getVideo.mockResolvedValue(null);
+
+            const res = await get();
+
+            expect(connector.getVideo).toHaveBeenCalledWith("pv1");
+            const json = await res.json();
+            expect(json.status).toBe("error");
+            expect(json.errorMessage).toBe("Video not found at provider");
+            const [claim, write] = (
+                StreamingVideo.findOneAndUpdate as jest.Mock
+            ).mock.calls;
+            // The claim only matches a ready video not checked for an hour.
+            expect(claim[0]).toMatchObject({
+                domain: "domain-id",
+                videoId: "v1",
+                status: "ready",
+            });
+            const cutoff = claim[0].$or[1].lastCheckedAt.$lt.getTime();
+            expect(Date.now() - cutoff).toBeGreaterThanOrEqual(60 * 60000);
+            expect(Date.now() - cutoff).toBeLessThan(61 * 60000);
+            expect(write[0]).toMatchObject({ videoId: "v1", status: "ready" });
+            expect(write[1].$set).toEqual({
+                status: "error",
+                errorMessage: "Video not found at provider",
+                lastCheckedAt: expect.any(Date),
+            });
+        });
+
+        it("only updates the check time of a ready video the provider still has", async () => {
+            const stored = {
+                ...video,
+                status: "ready",
+                readyAt: minutesAgo(600),
+            };
+            (StreamingVideo.findOne as jest.Mock).mockResolvedValue(stored);
+            (StreamingVideo.findOneAndUpdate as jest.Mock)
+                .mockResolvedValueOnce(stored)
+                .mockResolvedValueOnce(stored);
+            connector.getVideo.mockResolvedValue({ status: "ready" });
+
+            await get();
+
+            const write = (StreamingVideo.findOneAndUpdate as jest.Mock).mock
+                .calls[1];
+            expect(write[1].$set).toEqual({
+                status: "ready",
+                lastCheckedAt: expect.any(Date),
+            });
         });
 
         it("returns the stored status when the provider fails", async () => {
