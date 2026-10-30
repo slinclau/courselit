@@ -11,6 +11,7 @@ import {
     getActiveProviderConfig,
     getProviderConfig,
     listVideoProviders,
+    hasActiveVideoProvider,
     removeVideoProvider,
     saveVideoProvider,
     setActiveVideoProvider,
@@ -161,6 +162,36 @@ describe("video provider logic", () => {
         await VideoProviderModel.deleteMany({});
         await StreamingVideoModel.deleteMany({});
         mockTestConnection.mockReset();
+    });
+
+    it("tells course authors whether a provider is active, nothing more", async () => {
+        const author = makeCtx([constants.permissions.manageCourse]);
+        expect(await hasActiveVideoProvider(author)).toBe(false);
+
+        await seed("p1", {}, admin);
+        await VideoProviderModel.updateOne(
+            { domain, providerId: "p1" },
+            { $set: { active: false } },
+        );
+        expect(await hasActiveVideoProvider(author)).toBe(false);
+
+        await VideoProviderModel.updateOne(
+            { domain, providerId: "p1" },
+            { $set: { active: true } },
+        );
+        expect(await hasActiveVideoProvider(author)).toBe(true);
+        // Scoped to the school.
+        expect(
+            await hasActiveVideoProvider(
+                makeCtx([constants.permissions.manageCourse], otherDomain),
+            ),
+        ).toBe(false);
+    });
+
+    it("refuses the provider check to users who cannot author courses", async () => {
+        await expect(hasActiveVideoProvider(makeCtx([]))).rejects.toThrow(
+            responses.action_not_allowed,
+        );
     });
 
     it("lists providers with only the last 4 chars of secrets", async () => {

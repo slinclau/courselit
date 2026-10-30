@@ -985,6 +985,8 @@ export const VIDEO_PROVIDER_FIELDS: Record<
 // Streaming video lessons
 export const STREAMING_VIDEO_LESSON_LABEL = "Video (streaming)";
 export const STREAMING_VIDEO_SAVE_FIRST = "Save the lesson to upload a video";
+export const STREAMING_VIDEO_NEEDS_PROVIDER =
+    "Set up a video provider in Settings → Streaming to add streaming video lessons";
 export const STREAMING_VIDEO_DRAFT_FAILED =
     "The lesson could not be saved. Please try again.";
 export const STREAMING_VIDEO_SAVES_DRAFT =

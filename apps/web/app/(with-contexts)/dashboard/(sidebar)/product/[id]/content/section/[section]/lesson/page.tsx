@@ -48,6 +48,7 @@ import {
     STREAMING_VIDEO_LESSON_LABEL,
     STREAMING_VIDEO_WAIT_FOR_UPLOAD,
     STREAMING_VIDEO_DRAFT_FAILED,
+    STREAMING_VIDEO_NEEDS_PROVIDER,
 } from "@ui-config/strings";
 import DashboardContent from "@components/admin/dashboard-content";
 import useProduct from "@/hooks/use-product";
@@ -158,6 +159,8 @@ export default function LessonPage() {
     const [isLoading, setIsLoading] = useState(isEditing);
     const [videoUploading, setVideoUploading] = useState(false);
     const [creatingDraft, setCreatingDraft] = useState(false);
+    // Streaming video lessons need an active video provider.
+    const [hasVideoProvider, setHasVideoProvider] = useState(false);
 
     useEffect(() => {
         if (product && !lesson.lessonId) {
@@ -171,6 +174,18 @@ export default function LessonPage() {
             });
         }
     }, [product]);
+
+    useEffect(() => {
+        if (isEditing) return;
+        new FetchBuilder()
+            .setUrl(`${address.backend}/api/graph`)
+            .setPayload("query { active: hasActiveVideoProvider }")
+            .setIsGraphQLEndpoint(true)
+            .build()
+            .exec()
+            .then((response: any) => setHasVideoProvider(!!response?.active))
+            .catch(() => setHasVideoProvider(false));
+    }, [isEditing, address.backend]);
 
     const updateLesson = (updates: Partial<Lesson>) => {
         setLesson({ ...lesson, ...updates });
@@ -578,12 +593,19 @@ export default function LessonPage() {
                                                     Constants.LessonType
                                                         .SCORM &&
                                                 !config.cacheEnabled;
+                                            const isStreamingDisabled =
+                                                value ===
+                                                    Constants.LessonType
+                                                        .STREAMING_VIDEO &&
+                                                !isEditing &&
+                                                !hasVideoProvider;
                                             const isTypeDisabled =
                                                 isEditing &&
                                                 value !==
                                                     loadedLessonRef.current?.type?.toLowerCase();
                                             const isDisabled =
                                                 isScormDisabled ||
+                                                isStreamingDisabled ||
                                                 isTypeDisabled;
 
                                             const cardContent = (
@@ -620,7 +642,10 @@ export default function LessonPage() {
                                                 </Label>
                                             );
 
-                                            if (isScormDisabled) {
+                                            if (
+                                                isScormDisabled ||
+                                                isStreamingDisabled
+                                            ) {
                                                 return (
                                                     <TooltipProvider
                                                         key={value}
@@ -633,10 +658,9 @@ export default function LessonPage() {
                                                             </TooltipTrigger>
                                                             <TooltipContent>
                                                                 <p>
-                                                                    Set
-                                                                    CACHE_DIR
-                                                                    env var to
-                                                                    enable SCORM
+                                                                    {isStreamingDisabled
+                                                                        ? STREAMING_VIDEO_NEEDS_PROVIDER
+                                                                        : "Set CACHE_DIR env var to enable SCORM"}
                                                                 </p>
                                                             </TooltipContent>
                                                         </Tooltip>

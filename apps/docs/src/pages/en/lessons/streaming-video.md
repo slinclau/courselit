@@ -14,7 +14,7 @@ Before you can upload videos, set up a video provider. See [Set up a video provi
 
 2. Click on `Add lesson` in any section.
 
-3. On the New Lesson screen, you'll see a row of lesson type cards. Click on the `Video (streaming)` card to select it.
+3. On the New Lesson screen, you'll see a row of lesson type cards. Click on the `Video (streaming)` card to select it. The card stays disabled until a video provider is active in `Settings` -> `Streaming`.
 
 4. Enter the title of the lesson.
 

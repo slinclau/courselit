@@ -213,6 +213,35 @@ jest.mock("@ui-lib/utils", () => ({
     truncate: (str: string) => str,
 }));
 
+// FetchBuilder whose provider check answers `hasProvider`; every other
+// request goes to the given exec/setPayload mocks.
+function mockFetchWithProvider(
+    exec: jest.Mock,
+    setPayload: jest.Mock = jest.fn(),
+    hasProvider = true,
+) {
+    (FetchBuilder as unknown as jest.Mock).mockImplementation(() => {
+        let payload: any;
+        const builder: any = {
+            setUrl: () => builder,
+            setPayload: (p: any) => {
+                payload = p;
+                if (!String(p).includes("hasActiveVideoProvider")) {
+                    setPayload(p);
+                }
+                return builder;
+            },
+            setIsGraphQLEndpoint: () => builder,
+            build: () => builder,
+            exec: () =>
+                String(payload).includes("hasActiveVideoProvider")
+                    ? Promise.resolve({ active: hasProvider })
+                    : exec(),
+        };
+        return builder;
+    });
+}
+
 describe("LessonPage", () => {
     const wrapper = ({ children }: { children: React.ReactNode }) => (
         <AddressContext.Provider
@@ -371,21 +400,41 @@ describe("LessonPage", () => {
         });
     });
 
+    it("disables streaming video lessons until a video provider is active", async () => {
+        mockFetchWithProvider(
+            jest.fn().mockResolvedValue({}),
+            jest.fn(),
+            false,
+        );
+        render(<LessonPage />, { wrapper });
+        await waitFor(() =>
+            expect(
+                screen.getByTestId(
+                    `radio-item-${Constants.LessonType.STREAMING_VIDEO}`,
+                ),
+            ).toHaveAttribute("disabled"),
+        );
+        expect(
+            screen.getByTestId(`radio-item-${Constants.LessonType.TEXT}`),
+        ).not.toHaveAttribute("disabled");
+    });
+
     it("saves a new streaming video lesson as a draft when a file is picked", async () => {
         const mockExec = jest.fn().mockResolvedValue({
             lesson: { lessonId: "draft-1" },
         });
-        const setPayload = jest.fn().mockReturnThis();
-        (FetchBuilder as unknown as jest.Mock).mockImplementation(() => ({
-            setUrl: jest.fn().mockReturnThis(),
-            setPayload,
-            setIsGraphQLEndpoint: jest.fn().mockReturnThis(),
-            build: jest.fn().mockReturnThis(),
-            exec: mockExec,
-        }));
+        const setPayload = jest.fn();
+        mockFetchWithProvider(mockExec, setPayload);
         const replaceState = jest.spyOn(window.history, "replaceState");
 
         render(<LessonPage />, { wrapper });
+        await waitFor(() =>
+            expect(
+                screen.getByTestId(
+                    `radio-item-${Constants.LessonType.STREAMING_VIDEO}`,
+                ),
+            ).not.toHaveAttribute("disabled"),
+        );
         fireEvent.click(
             screen.getByTestId(
                 `radio-item-${Constants.LessonType.STREAMING_VIDEO}`,
@@ -432,18 +481,19 @@ describe("LessonPage", () => {
             .mockImplementation(
                 () => new Promise((resolve) => (resolveCreate = resolve)),
             );
-        (FetchBuilder as unknown as jest.Mock).mockImplementation(() => ({
-            setUrl: jest.fn().mockReturnThis(),
-            setPayload: jest.fn().mockReturnThis(),
-            setIsGraphQLEndpoint: jest.fn().mockReturnThis(),
-            build: jest.fn().mockReturnThis(),
-            exec: mockExec,
-        }));
+        mockFetchWithProvider(mockExec);
         const replaceState = jest
             .spyOn(window.history, "replaceState")
             .mockImplementation(() => {});
 
         render(<LessonPage />, { wrapper });
+        await waitFor(() =>
+            expect(
+                screen.getByTestId(
+                    `radio-item-${Constants.LessonType.STREAMING_VIDEO}`,
+                ),
+            ).not.toHaveAttribute("disabled"),
+        );
         fireEvent.click(
             screen.getByTestId(
                 `radio-item-${Constants.LessonType.STREAMING_VIDEO}`,

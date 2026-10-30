@@ -63,6 +63,28 @@ const toPublic = (
 const countVideos = (domain: unknown, providerId: string) =>
     StreamingVideoModel.countDocuments({ domain, providerId });
 
+/**
+ * Whether the school has an active video provider, so the lesson editor can
+ * offer streaming video lessons. Open to course authors: reveals nothing else.
+ */
+export const hasActiveVideoProvider = async (
+    ctx: GQLContext,
+): Promise<boolean> => {
+    checkIfAuthenticated(ctx);
+    if (
+        !checkPermission(ctx.user.permissions, [
+            permissions.manageCourse,
+            permissions.manageAnyCourse,
+        ])
+    ) {
+        throw new Error(responses.action_not_allowed);
+    }
+    return !!(await VideoProviderModel.exists({
+        domain: ctx.subdomain._id,
+        active: true,
+    }));
+};
+
 export const listVideoProviders = async (
     ctx: GQLContext,
 ): Promise<VideoProviderPublic[]> => {

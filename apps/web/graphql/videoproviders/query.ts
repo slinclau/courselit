@@ -1,7 +1,7 @@
-import { GraphQLList, GraphQLNonNull } from "graphql";
+import { GraphQLBoolean, GraphQLList, GraphQLNonNull } from "graphql";
 import GQLContext from "@models/GQLContext";
 import types from "./types";
-import { listVideoProviders } from "./logic";
+import { hasActiveVideoProvider, listVideoProviders } from "./logic";
 
 const queries = {
     listVideoProviders: {
@@ -10,6 +10,11 @@ const queries = {
         ),
         resolve: (_: any, __: any, context: GQLContext) =>
             listVideoProviders(context),
+    },
+    hasActiveVideoProvider: {
+        type: new GraphQLNonNull(GraphQLBoolean),
+        resolve: (_: any, __: any, context: GQLContext) =>
+            hasActiveVideoProvider(context),
     },
 };
 
