@@ -482,10 +482,77 @@ describe("video status and uploaded", () => {
 
             const write = (StreamingVideo.findOneAndUpdate as jest.Mock).mock
                 .calls[1];
-            expect(write[1].$set).toEqual({
-                status: "ready",
-                lastCheckedAt: expect.any(Date),
+            expect(write[1].$set).toEqual({ lastCheckedAt: expect.any(Date) });
+        });
+
+        it("claims only a check that is due, including a null lastCheckedAt", async () => {
+            (StreamingVideo.findOne as jest.Mock).mockResolvedValue({
+                ...video,
+                status: "uploading",
             });
+            (
+                StreamingVideo.findOneAndUpdate as jest.Mock
+            ).mockResolvedValueOnce(null);
+            await get();
+            const claim = (StreamingVideo.findOneAndUpdate as jest.Mock).mock
+                .calls[0];
+            expect(claim[0].$or).toEqual(
+                expect.arrayContaining([
+                    { lastCheckedAt: { $exists: false } },
+                    { lastCheckedAt: null },
+                ]),
+            );
+        });
+
+        it("brings back a not-found video the provider has again", async () => {
+            const stored = {
+                ...video,
+                status: "error",
+                errorMessage: "Video not found at provider",
+                lastCheckedAt: minutesAgo(61),
+            };
+            (StreamingVideo.findOne as jest.Mock).mockResolvedValue(stored);
+            (StreamingVideo.findOneAndUpdate as jest.Mock)
+                .mockResolvedValueOnce(stored)
+                .mockResolvedValueOnce({
+                    ...stored,
+                    status: "ready",
+                    errorMessage: undefined,
+                });
+            connector.getVideo.mockResolvedValue({ status: "ready" });
+
+            const res = await get();
+
+            expect((await res.json()).status).toBe("ready");
+            const [claim, write] = (
+                StreamingVideo.findOneAndUpdate as jest.Mock
+            ).mock.calls;
+            expect(claim[0]).toMatchObject({
+                status: "error",
+                errorMessage: "Video not found at provider",
+            });
+            expect(write[0]).toMatchObject({ videoId: "v1", status: "error" });
+            expect(write[1].$set.status).toBe("ready");
+            expect(write[1].$unset).toEqual({ errorMessage: 1 });
+        });
+
+        it.each([
+            [
+                "a not-found video checked within the hour",
+                "Video not found at provider",
+                30,
+            ],
+            ["another error", "Video processing failed at provider", 600],
+        ])("does not re-read %s", async (_, errorMessage, minutes) => {
+            (StreamingVideo.findOne as jest.Mock).mockResolvedValue({
+                ...video,
+                status: "error",
+                errorMessage,
+                lastCheckedAt: minutesAgo(minutes),
+            });
+            await get();
+            expect(connector.getVideo).not.toHaveBeenCalled();
+            expect(StreamingVideo.findOneAndUpdate).not.toHaveBeenCalled();
         });
 
         it("returns the stored status when the provider fails", async () => {
